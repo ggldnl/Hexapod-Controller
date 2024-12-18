@@ -1,4 +1,4 @@
-name: Hexapod-Controller-Python
+name: hexapod
 channels:
   - conda-forge
 dependencies:
@@ -27,4 +27,3 @@ dependencies:
   - xz=5.2.6=h166bdaf_0
   - pip:
       - pyserial==3.5
-prefix: /home/daniel/mambaforge/envs/Hexapod-Controller-Python
