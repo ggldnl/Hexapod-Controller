@@ -15,6 +15,7 @@ class Controller:
         self.interface.close()
 
     def get_all(self):
+        # TODO this is a stub
         return [0] * 18
 
     def set_all(self, angles):
