@@ -1,5 +1,20 @@
-from interface import Interface
+# from interface import Interface
 import time
+
+
+class DummyInterface:
+
+    def __init__(self):
+        pass
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def set_angle(self, servo, angle):
+        print(f'Servo [{servo}] set at angle {angle}')
 
 # Interpolation function for a single servo
 def interpolate_servo(current_angle, target_angle, speed, delta_time):
@@ -18,7 +33,7 @@ def interpolate_servo(current_angle, target_angle, speed, delta_time):
 # Main loop
 def main_loop(duration=5):
     
-    interface = Interface()
+    interface = DummyInterface()
 
     with interface:
 
