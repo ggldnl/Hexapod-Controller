@@ -1,0 +1,6 @@
+name: hexapod
+channels:
+  - conda-forge
+dependencies:
+  - numpy
+  - pyserial
