@@ -220,9 +220,11 @@ if __name__ == '__main__':
         controller.attach_servos()
         time.sleep(1)
 
+        angle = 0
         for i in range(18):
 
-            controller.set_angle(i, 0)
+            print(f'Setting servo [{i}] to {angle}')
+            controller.set_angle(i, angle)
             time.sleep(0.5)
 
         controller.detach_servos()
