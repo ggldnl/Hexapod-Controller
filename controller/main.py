@@ -69,6 +69,9 @@ if __name__ == '__main__':
             # Get the joint angles
             joint_angles = controller.step(dt)
 
+            # Convert to deg
+            joint_angles = np.array([np.rad2deg(a) for a in joint_angles])
+
             # Reshape the joint angles into a single 1D array
             joint_angles = joint_angles.reshape(-1).tolist()
 

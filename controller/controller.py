@@ -63,21 +63,6 @@ class Controller :
             if i > 2:
                 leg_angles[1] *= -1
 
-        # Check the angles do not violate constraints
-        for i, leg_angles in enumerate(translated_angles):
-
-            if not (self.hexapod.legs[i].config['coxa']['range_min'] <= leg_angles[0] <= self.hexapod.legs[i].config['coxa']['range_max']):
-                raise ValueError(f"Unable to set coxa angle for leg {i}: {leg_angles[0]} not in range"
-                                 f"[{self.hexapod.legs[i].config['coxa']['range_min']}, {self.hexapod.legs[i].config['coxa']['range_max']}]")
-
-            if not (self.hexapod.legs[i].config['femur']['range_min'] <= leg_angles[1] <= self.hexapod.legs[i].config['femur']['range_max']):
-                raise ValueError(f"Unable to set femur angle for leg {i}: {leg_angles[1]} not in range"
-                                 f"[{self.hexapod.legs[i].config['femur']['range_min']}, {self.hexapod.legs[i].config['femur']['range_max']}]")
-
-            if not (self.hexapod.legs[i].config['tibia']['range_min'] <= leg_angles[2] <= self.hexapod.legs[i].config['tibia']['range_max']):
-                raise ValueError(f"Unable to set tibia angle for leg {i}: {leg_angles[2]} not in range"
-                                 f"[{self.hexapod.legs[i].config['tibia']['range_min']}, {self.hexapod.legs[i].config['tibia']['range_max']}]")
-
         return translated_angles
 
     def step(self, dt):
