@@ -21,6 +21,7 @@ if __name__ == '__main__':
     # --------------------------------- Interface -------------------------------- #
 
     interface = Interface()
+    interface.open()
     time.sleep(1)
     interface.attach_servos()
 
