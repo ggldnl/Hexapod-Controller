@@ -35,55 +35,30 @@ def transformation_matrix(rotation, translation):
     matrix[:3, 3] = translation
     return matrix
 
+
 class Leg:
 
-    def __init__(self, config, frame):
+    def __init__(self, config, frame, mirror=False):
         """
         Initialize the Leg class.
         """
-
         self.config = config
         self.frame = frame
+        self.mirror = mirror
 
         # Joint angles [coxa_angle, femur_angle, tibia_angle] (in radians)
-        self.joint_angles = [0.0, 0.0, 0.0]
+        self.joint_angles = np.zeros(3)
+
 
     def __str__(self):
         return (f'Leg ( '
                 f'coxa={self.config["coxa"]["length"]}, '
                 f'femur={self.config["femur"]["length"]}, '
                 f'tibia={self.config["tibia"]["length"]} | '
-                f'alpha={round(self.joint_angles[0], 2)}, '
-                f'beta={round(self.joint_angles[1], 2)}, '
-                f'gamma={round(self.joint_angles[2], 2)})'
+                f'alpha={np.round(self.joint_angles[0], 2)}, '
+                f'beta={np.round(self.joint_angles[1], 2)}, '
+                f'gamma={np.round(self.joint_angles[2], 2)})'
             )
-
-    def inverse_kinematics(self, target):
-        """
-        Compute the joint angles to reach the target point (expressed in the leg's reference frame)
-        """
-        x, y, z = target
-
-        c = self.config['coxa']['length']
-        f = self.config['femur']['length']
-        t = self.config['tibia']['length']
-
-        # Coxa angle
-        alpha = np.arctan2(y, x)
-        r = np.sqrt(x ** 2 + y ** 2) - c
-
-        # Compute 2D planar IK for femur and tibia
-        d = np.sqrt(r ** 2 + z ** 2)  # Distance to the target
-        if d > (f + t):
-            raise ValueError("Target is out of reach!")
-
-        cos_angle2 = (f ** 2 + t ** 2 - d ** 2) / (2 * f * t)
-        gamma = np.arccos(cos_angle2) - np.pi
-
-        cos_angle1 = (f ** 2 + d ** 2 - t ** 2) / (2 * f * d)
-        beta = np.arctan2(z, r) + np.arccos(cos_angle1)
-
-        self.joint_angles = [alpha, beta, gamma]
 
     def forward_kinematics(self):
         """
@@ -110,19 +85,53 @@ class Leg:
 
         return tibia_x, tibia_y, tibia_z
 
+    def inverse_kinematics(self, target):
+        """
+        Compute the joint angles to reach the target point (expressed in the leg's reference frame).
+        """
+        x, y, z = target
+
+        c = self.config['coxa']['length']
+        f = self.config['femur']['length']
+        t = self.config['tibia']['length']
+
+        # Coxa angle
+        alpha = np.arctan2(y, x)
+        r = np.sqrt(x ** 2 + y ** 2) - c
+
+        # Compute 2D planar IK for femur and tibia
+        d = np.sqrt(r ** 2 + z ** 2)  # Distance to the target
+        if d > (f + t):
+            raise ValueError(f"Target {target} ({d}) is out of reach ({f} + {t} = {f + t}).")
+
+        cos_angle2 = (f ** 2 + t ** 2 - d ** 2) / (2 * f * t)
+        gamma = np.arccos(cos_angle2) - np.pi
+
+        cos_angle1 = (f ** 2 + d ** 2 - t ** 2) / (2 * f * d)
+        beta = np.arctan2(z, r) + np.arccos(cos_angle1)
+
+        self.joint_angles = np.array([alpha, beta, gamma])
+
 
 class Hexapod:
 
-    def __init__(self, config, silent_fail=True):
+    def __init__(self, config):
+        """
+        Initializes the hexapod by creating the legs, leg frames and setting up initial position and
+        orientation (pose) of the body.
+
+        Parameters:
+            config (dict): Configuration dictionary containing all the robot configuration parameters.
+        """
+
         self.config = config
-        self.silent_fail = silent_fail
 
         self.position = [0, 0, 0]
         self.orientation = [0, 0, 0]
         self.body_frame = transformation_matrix(rotation_matrix(self.orientation), self.position)
 
         self.legs = []
-        for leg in config:
+        for i, leg in enumerate(config):
 
             x_off = config[leg]['T']['x']
             y_off = config[leg]['T']['y']
@@ -174,11 +183,7 @@ class Hexapod:
         Returns the current end effector positions expressed in the respective leg frame.
         """
 
-        leg_ee_positions = []
-        for leg in self.legs:
-            leg_ee_positions.append(leg.forward_kinematics())
-
-        return leg_ee_positions
+        return np.array([leg.forward_kinematics() for leg in self.legs])
 
     def inverse_kinematics(self, targets):
         """
@@ -189,20 +194,32 @@ class Hexapod:
         for leg, target in zip(self.legs, targets):
             leg.inverse_kinematics(target)
 
+        return np.array([leg.joint_angles for leg in self.legs])
+
 
 if __name__ == '__main__':
 
-    from pathlib import Path
+    import argparse
     import json
 
-    # Read the config
-    path = Path('../config/hexapod.json')
-    with open(path) as f:
+    # Argument parser setup
+    parser = argparse.ArgumentParser(description="Hexapod visualization tool.")
+    parser.add_argument('-x', '--x', type=float, default=0.0, help="Body X offset in mm")
+    parser.add_argument('-y', '--y', type=float, default=0.0, help="Body Y offset in mm")
+    parser.add_argument('-z', '--z', type=float, default=0.0, help="Body Z offset in mm")
+    parser.add_argument('-r', '--roll', type=float, default=0.0, help="Body roll in degrees")
+    parser.add_argument('-p', '--pitch', type=float, default=0.0, help="Body pitch in degrees")
+    parser.add_argument('-w', '--yaw', type=float, default=45.0, help="Body yaw in degrees")
+    parser.add_argument('-c', '--config', type=str, default='simulation/config.json', help="Config file for the hexapod")
+    parser.add_argument('-n', '--name', type=str, default='hexapod', help="Name of the hexapod in the config")
+    args = parser.parse_args()
+
+    # Read the JSON
+    with open(args.config) as f:
         config = json.load(f)
 
     # Create a Hexapod object
-    name = 'hexapod'
-    hexapod = Hexapod(config[name])
+    hexapod = Hexapod(config[args.name])
 
     # Set the target points each leg has to reach (in leg frames)
     targets = [
@@ -217,7 +234,6 @@ if __name__ == '__main__':
 
     # Change body pose
     hexapod.set_body_pose(
-        [0, 0, 10],
-        [np.deg2rad(10), np.deg2rad(10), np.deg2rad(10)]
+        [args.x, args.y, args.z],
+        [np.deg2rad(args.roll), np.deg2rad(args.pitch), np.deg2rad(args.yaw)]
     )
-
