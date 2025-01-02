@@ -5,13 +5,12 @@ import json
 
 from controller import Controller
 from interface import Interface
-from hexapod import Hexapod
+from hexapod import Robot
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Code to be run on the Hexapod")
-    parser.add_argument("-g", "--gait", type=str, default='tri', help="Gait (tri/wave/ripple)")
     parser.add_argument("-c", "--config", type=str, default='controller/config.json', help="Path to the robot's configuration file")
     parser.add_argument('-n', '--name', type=str, default='hexapod', help="Name of the robot in the config")
     parser.add_argument('-d', '--dt', type=float, default=0.02, help="Time delta for update (default=0.02=50Hz)")
@@ -31,8 +30,8 @@ if __name__ == '__main__':
     with open(args.config) as f:
         config = json.load(f)
 
-    # Create a Hexapod object
-    hexapod = Hexapod(config[args.name])
+    # Create a Robot object
+    hexapod = Robot(config[args.name])
     controller = Controller(hexapod)
 
     # ------------------------------- Control loop ------------------------------- #
@@ -45,9 +44,13 @@ if __name__ == '__main__':
         # dt = 1. / 240.
         dt = args.dt
 
-        print(f'Standing...')
+        print(f'Waiting...')
         controller.wait(2)
+
+        print(f'Standing...')
         controller.stand(2)
+
+        """
         controller.set_body_pose(
             [0, 0, 0],
             [np.deg2rad(10), np.deg2rad(10), np.deg2rad(10)],
@@ -63,29 +66,27 @@ if __name__ == '__main__':
             [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)],
             1
         )
+        """
 
         while True:
 
-            # Get the joint angles
-            joint_angles = controller.step(dt)
-
-            # Convert to deg
-            joint_angles = np.array([np.rad2deg(a) for a in joint_angles])
+            # Get the joint angles as pulse widths
+            joint_pulses = controller.step(dt)
 
             # Reshape the joint angles into a single 1D array
-            joint_angles = joint_angles.reshape(-1).tolist()
+            joint_pulses = joint_pulses.reshape(-1).tolist()
 
             # Set them
-            interface.set_angles([i for i in range(18)], joint_angles)
+            interface.set_pulses([i for i in range(18)], joint_pulses)
 
             time.sleep(dt)
             t += dt
 
+    except KeyboardInterrupt:
+
+        print('Stopped.')
+
     finally:
 
         print('Disconnected.')
-
-        interface.detach_servos()
-        time.sleep(1)
-
         interface.close()
