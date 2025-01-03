@@ -1,6 +1,6 @@
 class State:
 
-    def __init__(self, body_position, body_orientation, legs_positions, joint_angles):
+    def __init__(self, legs_positions, body_position, body_orientation, joint_angles):
         """
         Represents the state of the robot in a given instant. We will compute the state of the
         robot in some key points and interpolate between them. This lets us:
@@ -8,11 +8,12 @@ class State:
         2. have the current body pose and legs positions at any time during interpolation of the joints;
 
         Parameters:
-            body_position (list[float] | np.ndarray): Body position.
-            body_orientation (list[float] | np.ndarray): Body orientation.
-            legs_positions (list[list[float]] | np.ndarray): Position of the end effectors of each leg.
-            joint_angles (list[list[float]] | np.ndarray): Joint angles that realize the state.
+            body_position (np.ndarray): Body position.
+            body_orientation (np.ndarray): Body orientation.
+            legs_positions (np.ndarray): Position of the end effectors of each leg.
+            joint_angles (np.ndarray): Joint angles that realize the state.
         """
+
         self.body_position = body_position
         self.body_orientation = body_orientation
         self.legs_positions = legs_positions

@@ -115,7 +115,7 @@ class LegModel:
         Computes the position of the end effector in the leg's reference frame.
 
         Parameters:
-            angles (list[float] | np.array): List of joint angles in radians.
+            angles (np.array): List of joint angles in radians.
         """
         end_effector = np.array([0, 0, 0, 1])  # Homogeneous coordinates
         transformation = self.coxa_T(angles[0]) @ self.femur_T(angles[1]) @ self.tibia_T(angles[2])
@@ -127,7 +127,7 @@ class LegModel:
         Compute the joint angles to reach the target point (expressed in the leg's reference frame).
 
         Parameters:
-            target (list[float] | np.array): Cartesian point for the end effect to reach, expressed in leg frame.
+            target (np.array): Cartesian point for the end effect to reach, expressed in leg frame.
         """
         x, y, z = target
 
@@ -142,7 +142,7 @@ class LegModel:
         # Compute 2D planar IK for femur and tibia
         d = np.sqrt(r ** 2 + z ** 2)  # Distance to the target
         if d > (f + t):
-            raise ValueError(f"Target {target} ({d}) is out of reach ({f} + {t} = {f + t}).")
+            raise ValueError(f"Target ({target[0]}, {target[1]}, {target[2]}) is out of reach (d={d}).")
 
         cos_angle2 = (f ** 2 + t ** 2 - d ** 2) / (2 * f * t)
         gamma = np.arccos(cos_angle2) - np.pi
@@ -173,16 +173,16 @@ class HexapodModel:
         Compute the global end-effector positions for the given joint angles and body pose.
 
         Parameters:
-            joint_angles (list[list[float]): A list of joint angle tuples (alpha, beta, gamma) for each leg.
-            body_position (list[float]): Body position [x, y, z]. Default is [0, 0, 0].
-            body_orientation (list[float]): Body orientation [roll, pitch, yaw]. Default is [0, 0, 0].
+            joint_angles (np.ndarray): A list of joint angle tuples (alpha, beta, gamma) for each leg.
+            body_position (np.ndarray): Body position [x, y, z]. Default is [0, 0, 0].
+            body_orientation (np.ndarray): Body orientation [roll, pitch, yaw]. Default is [0, 0, 0].
         """
 
         if body_position is None:
-            body_position = [0, 0, 0]
+            body_position = np.zeros(3)
 
         if body_orientation is None:
-            body_orientation = [0, 0, 0]
+            body_orientation = np.zeros(3)
 
         body_frame = transformation_matrix(rotation_matrix(body_orientation), body_position)
         all_end_effector_positions = []
@@ -199,50 +199,55 @@ class HexapodModel:
 
             all_end_effector_positions.append(end_effector_global[:3])
 
-        return all_end_effector_positions
+        return np.array(all_end_effector_positions)
 
     def inverse_kinematics(self, legs_positions, body_position=None, body_orientation=None, targets_in_body_frame=True):
         """
         Compute the leg joint angles to achieve the desired body pose and end-effector positions.
 
         Parameters:
-            legs_positions (list[list[float]]): Target end-effector positions for each leg (6x3 matrix).
-            body_position (list[float]): [x, y, z] position of the body in the world frame. Default is [0, 0, 0].
-            body_orientation (list[float]): [roll, pitch, yaw] orientation of the body in the world frame. Default is [0, 0, 0].
+            legs_positions (np.ndarray): Target end-effector positions for each leg (6x3 matrix).
+            body_position (np.ndarray): [x, y, z] position of the body in the world frame. Default is [0, 0, 0].
+            body_orientation (np.ndarray): [roll, pitch, yaw] orientation of the body in the world frame. Default is [0, 0, 0].
             targets_in_body_frame (bool): If True, the targets are expressed in body frames, otherwise they are expressed in leg frame.
                 Setting the targets in leg frame could be useful during gait.
 
         Returns:
-            list[list[float]]: Joint angles for each leg.
+            np.ndarray: Joint angles for each leg.
         """
         if body_position is None:
-            body_position = [0, 0, 0]
+            body_position = np.zeros(3)
 
         if body_orientation is None:
-            body_orientation = [0, 0, 0]
+            body_orientation = np.zeros(3)
 
         new_body_frame = transformation_matrix(rotation_matrix(body_orientation), body_position)
 
         all_joint_angles = []
-        for leg, target_position in zip(self.legs, legs_positions):
+        for i, (leg, target_position) in enumerate(zip(self.legs, legs_positions)):
 
-            if targets_in_body_frame:
+            try:
 
                 # Compute the new leg frame after displacement and rotation of the body
                 new_leg_frane = new_body_frame @ leg.frame
                 new_leg_frame_inv = np.linalg.inv(new_leg_frane)
 
-                # Express the same point in the new leg frame
-                target_position_leg_frame = new_leg_frame_inv @ np.array([*target_position, 1])
+                if targets_in_body_frame:
+
+                    # Express the same point in the new leg frame
+                    target_position_leg_frame = new_leg_frame_inv @ np.array([*target_position, 1])
+
+                else:  # Points are in leg frames
+
+                    target_position_leg_frame = new_leg_frame_inv @ (leg.frame @ np.array([*target_position, 1]))
 
                 # Compute inverse kinematics
                 joint_angles = leg.inverse_kinematics(target_position_leg_frame[:3])
+                all_joint_angles.append(joint_angles)
 
-            else:
+            except ValueError as e:
 
-                # Target positions are already in the leg frame
-                joint_angles = leg.inverse_kinematics(target_position)
+                raise ValueError(f'Unable to reach target point for leg {i}: {e}')
 
-            all_joint_angles.append(joint_angles)
 
-        return all_joint_angles
+        return np.array(all_joint_angles)

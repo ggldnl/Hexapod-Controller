@@ -1,7 +1,7 @@
 import numpy as np
 
-from action import Action
 from state import State
+from action import Action
 
 
 class Controller:
@@ -35,14 +35,14 @@ class Controller:
                 self.elapsed = 0
             else:
                 # No actions to execute
-                return self.hexapod.get_joint_values()
+                return self.hexapod.state.joint_angles
 
         # Get the current target and duration
         target_state, duration = self.current_action.current_target()
         if target_state is None:
             # Action is complete
             self.current_action = None
-            return self.hexapod.get_joint_values()
+            return self.hexapod.state.joint_angles
 
         # Update elapsed time
         self.elapsed += dt
@@ -56,7 +56,7 @@ class Controller:
             self.current_action.advance()
             self.elapsed = 0
 
-        return self.hexapod.get_joint_values()
+        return self.hexapod.state.joint_angles
 
     def is_done(self):
         """
@@ -76,21 +76,62 @@ class Controller:
 
     # ---------------------------------- Actions --------------------------------- #
 
-    def get_state(self, legs_positions, body_position=None, body_orientation=None, targets_in_leg_frames=True):
+    # WARN ensure all the methods in the controller are consistent with respect to targets_in_body_frame
+    #   e.g.
+    #   1. the previous action set the legs_positions expressed in leg frame in the state;
+    #   2. legs_positions could be missing in the current action, making the get_state method take them
+    #       from the current state;
+    #   3. the default value of targets_in_body_frame will be used (True);
+    #   4. the value of targets_in_body_frame will not match: targets points are expressed in leg frame
+    #       but targets_in_body_frame is True
 
-        joint_angles = self.hexapod.inverse_kinematics(legs_positions, body_position, body_orientation, targets_in_leg_frames)
+    def get_state(self, legs_positions=None, body_position=None, body_orientation=None):
+        """
+        Given the body pose and legs positions, returns a state with them.
+        This method tries to fill the missing arguments using the last state of the last action that the
+        robot should execute. If none of the above parameters are given, this method returns the current
+        state and this translates to the robot keeping the same position (waiting).
+        The legs target positions are supposed to be in body frame.
 
-        state = State(
-            body_position=body_position,
-            body_orientation=body_orientation,
-            legs_positions=legs_positions,
-            joint_angles=joint_angles
+        Parameters:
+            legs_positions (np.ndarray): Target end-effector positions for each leg (6x3 matrix) in world frame.
+            body_position (np.ndarray): [x, y, z] position of the body in the world frame.
+            body_orientation (np.ndarray): [roll, pitch, yaw] orientation of the body in the world frame.
+        """
+
+        # Take the last state we need to reach, if any, and use it to fill the missing parameters
+        if self.action_queue:
+            previous_state = self.action_queue[-1].states[-1]
+        else:
+            previous_state = self.hexapod.state
+
+        if legs_positions is None:
+            legs_positions = previous_state.legs_positions
+
+        if body_position is None:
+            body_position = previous_state.body_position
+
+        if body_orientation is None:
+            body_orientation = previous_state.body_orientation
+
+        joint_angles = self.hexapod.inverse_kinematics(
+            legs_positions,
+            body_position,
+            body_orientation,
+            targets_in_body_frame=True
         )
 
-        if all(item is None for leg_angles in joint_angles for item in leg_angles):
-            state = self.hexapod.state
-
-        return state
+        # TODO add automatic error handling
+        #  -> catch exception in hexapod class and return None if the point is unreachable
+        if joint_angles is not None:
+            return State(
+                body_position=body_position,
+                body_orientation=body_orientation,
+                legs_positions=legs_positions,
+                joint_angles=joint_angles
+            )
+        else:
+            return self.hexapod.state
 
     def stand(self, duration, height=100, y_offset=120):
         """
@@ -107,12 +148,24 @@ class Controller:
             states=[
 
                 # Extend the leg
-                self.get_state([[y_offset, 0, 0] for _ in range(6)]),
+                self.get_state(
+                    legs_positions=self.hexapod.transform_to_body_frame(np.array([[y_offset, 0, 0] for _ in range(6)])),
+                    body_position=np.zeros(3),
+                    body_orientation=np.zeros(3)
+                ),
 
                 # Full lift
-                self.get_state([[y_offset, 0, -height] for _ in range(6)])
+                self.get_state(
+                    legs_positions=self.hexapod.transform_to_body_frame(np.array([[y_offset, 0, 0] for _ in range(6)])),
+                    body_position=np.array([0, 0, height]),
+                    body_orientation=np.zeros(3)
+                )
+
             ],
-            durations=[duration, duration]
+            durations=[
+                duration,
+                duration
+            ]
         )
         self.add_action(stand_action)
 
@@ -124,11 +177,28 @@ class Controller:
             duration (float): Time in seconds to interpolate to the target angles.
         """
 
-        stand_action = Action(
+        wait_action = Action(
             states=[
-                # self.get_state([leg.joint_angles for leg in self.hexapod])
-                self.hexapod.state
+                self.get_state()
             ],
             durations=[duration]
         )
-        self.add_action(stand_action)
+        self.add_action(wait_action)
+
+    def reach(self, duration, legs_positions=None, body_position=None, body_orientation=None):
+        """
+        Reach a target configuration (body pose and end effectors positions).
+
+        Parameters:
+            legs_positions (np.ndarray): Target end-effector positions for each leg (6x3 matrix) in world frame.
+            body_position (np.ndarray): [x, y, z] position of the body in the world frame.
+            body_orientation (np.ndarray): [roll, pitch, yaw] orientation of the body in the world frame.
+        """
+
+        reach_action = Action(
+            states=[
+                self.get_state(legs_positions, body_position, body_orientation)
+            ],
+            durations=[duration]
+        )
+        self.add_action(reach_action)

@@ -39,34 +39,26 @@ if __name__ == '__main__':
     try:
 
         interface.open()
+        print(f'Connected.')
 
         t = 0.0
         # dt = 1. / 240.
         dt = args.dt
 
-        print(f'Waiting...')
+        # Stand and wait
+        controller.stand(2)
         controller.wait(2)
 
-        print(f'Standing...')
-        controller.stand(2)
-
-        """
-        controller.set_body_pose(
-            [0, 0, 0],
-            [np.deg2rad(10), np.deg2rad(10), np.deg2rad(10)],
-            2
+        # Reach a configuration
+        controller.reach(
+            2,
+            body_orientation=np.array([0, 0, np.deg2rad(10)])
         )
-        controller.set_body_pose(
-            [0, 0, 0],
-            [np.deg2rad(-10), np.deg2rad(-10), np.deg2rad(-10)],
-            2
+        controller.reach(
+            2,
+            body_orientation=np.array([0, 0, -np.deg2rad(10)])
         )
-        controller.set_body_pose(
-            [0, 0, 0],
-            [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)],
-            1
-        )
-        """
+        print(f'Action sequence computed.')
 
         while True:
 
