@@ -99,6 +99,10 @@ class Controller:
             body_orientation (np.ndarray): [roll, pitch, yaw] orientation of the body in the world frame.
         """
 
+        # TODO the state is TOO COMPLEX. Think about leaving only the joint values in the state;
+        #   the other values can be computed with the forward kinematics (it should also return
+        #   body pose)
+
         # Take the last state we need to reach, if any, and use it to fill the missing parameters
         if self.action_queue:
             previous_state = self.action_queue[-1].states[-1]

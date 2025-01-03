@@ -251,19 +251,7 @@ class Robot(RobotInterface):
             body_orientation,
             targets_in_body_frame=True
         )
-
-        print('Original:')
-        print(np.round(np.rad2deg(joint_angles), 2))
-        print()
-
         translated_angles = self.translate(joint_angles)
-        print('Converted:')
-        print(np.round(np.rad2deg(translated_angles), 2))
-        print()
-
-        print('-' * 20)
-        print()
-
         translated_angles = self.check(translated_angles)
         pulses = self.convert(translated_angles)
         return pulses
