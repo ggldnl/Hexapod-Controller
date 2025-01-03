@@ -178,7 +178,7 @@ class Robot(RobotInterface):
     def angle_to_pulse(cls, angle, min_pulse, max_pulse):
         # return int(round(cls.map_range(angle, -np.pi/2, np.pi/2, min_pulse, max_pulse)))
         # TODO fix this
-        return angle
+        return np.rad2deg(angle)
 
     def translate(self, angles):
         """
@@ -193,8 +193,8 @@ class Robot(RobotInterface):
         for i, leg_angles in enumerate(translated_angles):
             leg_angles = [
                 leg_angles[0],  # Coxa angle is the same
-                self.map_range(leg_angles[1], np.pi / 2, -np.pi / 2, 0, np.pi),
-                self.map_range(leg_angles[2], -np.pi / 2, np.pi / 2, 0, -np.pi)
+                self.map_range(leg_angles[1], np.pi / 2, -np.pi / 2, -np.pi / 2, np.pi / 2),
+                self.map_range(leg_angles[2], -np.pi / 2, np.pi / 2, np.pi / 2, -np.pi / 2)
             ]
             translated_angles[i] = leg_angles
 
@@ -221,9 +221,9 @@ class Robot(RobotInterface):
 
         return angles
 
-    def to_pulse(self, angles):
+    def convert(self, angles):
         """
-        Converts the angles to pulse widths.
+        Converts the angles from radians to pulse widths.
 
         Parameters:
             angles (np.ndarray): Joint angles.
@@ -246,7 +246,7 @@ class Robot(RobotInterface):
         )
         translated_angles = self.translate(joint_angles)
         translated_angles = self.check(translated_angles)
-        pulses = self.to_pulse(translated_angles)
+        pulses = self.convert(translated_angles)
         return pulses
 
 
