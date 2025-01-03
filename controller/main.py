@@ -10,7 +10,7 @@ from hexapod import Robot
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description="Code to be run on the Hexapod")
+    parser = argparse.ArgumentParser(description="Hexapod controller.")
     parser.add_argument("-c", "--config", type=str, default='config/config.json', help="Path to the robot's configuration file")
     parser.add_argument('-n', '--name', type=str, default='hexapod', help="Name of the robot in the config")
     parser.add_argument('-d', '--dt', type=float, default=0.02, help="Time delta for update (default=0.02=50Hz)")
@@ -69,7 +69,9 @@ if __name__ == '__main__':
             joint_pulses = joint_pulses.reshape(-1).tolist()
 
             # Set them
-            interface.set_pulses([i for i in range(18)], joint_pulses)
+            # TODO fix this
+            # interface.set_pulses([i for i in range(18)], joint_pulses)
+            interface.set_angles([i for i in range(18)], joint_pulses)
 
             time.sleep(dt)
             t += dt
