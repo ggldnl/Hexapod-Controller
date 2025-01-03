@@ -22,6 +22,7 @@ controller = Interface()
 
 
 def main(stdscr):
+
     # Curses setup
     curses.curs_set(0)  # Hide cursor
     stdscr.clear()
@@ -47,12 +48,12 @@ def main(stdscr):
             key = stdscr.getch()
             if key == curses.KEY_UP:
                 current_angle = min(current_angle + ANGLE_STEP, ANGLE_MAX)
-                controller.set_angle(current_servo, np.deg2rad(current_angle))
+                controller.set_angle(current_servo, current_angle)
                 time.sleep(0.2)
 
             elif key == curses.KEY_DOWN:
                 current_angle = max(current_angle - ANGLE_STEP, ANGLE_MIN)
-                controller.set_angle(current_servo, np.deg2rad(current_angle))
+                controller.set_angle(current_servo, current_angle)
                 time.sleep(0.2)
 
             elif key == 10:  # Enter key
