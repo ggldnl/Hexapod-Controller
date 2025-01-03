@@ -1,6 +1,6 @@
+import curses
 import time
 from interface import Interface
-import keyboard
 import argparse
 import numpy as np
 
@@ -19,46 +19,62 @@ NUM_SERVOS = 18
 
 # Initialize Interface
 controller = Interface()
-current_servo = 0
-current_angle = 0
 
-try:
-    print("Connecting to servo controller...")
-    controller.open()
-    controller.attach_servos()
-    print("Use UP/DOWN arrows to adjust angle, ENTER to switch to next servo, ESC to quit.")
 
-    while True:
+def main(stdscr):
+    # Curses setup
+    curses.curs_set(0)  # Hide cursor
+    stdscr.clear()
+    stdscr.nodelay(1)  # Make getch non-blocking
+    stdscr.timeout(100)  # Refresh screen every 100 ms
 
-        angle_radians = np.deg2rad(current_angle)
-        print(f"Servo {current_servo}: {current_angle}° ({angle_radians:.2f} rad)\r", end="", flush=True)
+    current_servo = 0
+    current_angle = 0
 
-        if keyboard.is_pressed("up"):
-            current_angle = min(current_angle + ANGLE_STEP, ANGLE_MAX)
-            controller.set_angle(current_servo, np.deg2rad(current_angle))
-            time.sleep(0.2)
+    try:
+        stdscr.addstr(0, 0, "Connecting to servo controller...")
+        controller.open()
+        controller.attach_servos()
+        stdscr.addstr(1, 0, "Use UP/DOWN arrows to adjust angle, ENTER to switch to next servo, ESC to quit.")
 
-        elif keyboard.is_pressed("down"):
-            current_angle = max(current_angle - ANGLE_STEP, ANGLE_MIN)
-            controller.set_angle(current_servo, np.deg2rad(current_angle))
-            time.sleep(0.2)
+        while True:
+            # Display current servo and angle
+            angle_radians = np.deg2rad(current_angle)
+            stdscr.addstr(3, 0, f"Servo {current_servo}: {current_angle}° ({angle_radians:.2f} rad)")
+            stdscr.refresh()
 
-        # Move to next servo with ENTER key
-        elif keyboard.is_pressed("enter"):
-            current_servo += 1
-            if current_servo >= NUM_SERVOS:
+            # Handle key input
+            key = stdscr.getch()
+            if key == curses.KEY_UP:
+                current_angle = min(current_angle + ANGLE_STEP, ANGLE_MAX)
+                controller.set_angle(current_servo, np.deg2rad(current_angle))
+                time.sleep(0.2)
+
+            elif key == curses.KEY_DOWN:
+                current_angle = max(current_angle - ANGLE_STEP, ANGLE_MIN)
+                controller.set_angle(current_servo, np.deg2rad(current_angle))
+                time.sleep(0.2)
+
+            elif key == 10:  # Enter key
+                current_servo += 1
+                if current_servo >= NUM_SERVOS:
+                    break
+                current_angle = 0
+                stdscr.addstr(4, 0, f"Switching to Servo {current_servo}")
+                time.sleep(0.5)
+
+            elif key == 27:  # Escape key
+                stdscr.addstr(5, 0, "Exiting program...")
                 break
-            current_angle = 0
-            print(f"\nSwitching to Servo {current_servo}")
-            time.sleep(0.5)
 
-        # Exit the program with ESC key
-        elif keyboard.is_pressed("esc"):
-            print("\nExiting program...")
-            break
+    finally:
+        # Detach servos and close connection
+        controller.detach_servos()
+        controller.close()
+        stdscr.addstr(6, 0, "Connection closed.")
+        stdscr.refresh()
+        time.sleep(1)
 
-finally:
-    # Detach servos and close connection
-    controller.detach_servos()
-    controller.close()
-    print("Connection closed.")
+
+# Run the curses application
+curses.wrapper(main)
