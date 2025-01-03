@@ -225,6 +225,6 @@ if __name__ == '__main__':
 
             print(f'Setting servo [{i}] to {angle}')
             controller.set_angle(i, angle)
-            time.sleep(0.5)
+            time.sleep(1)
 
         controller.detach_servos()

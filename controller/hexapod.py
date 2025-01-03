@@ -193,16 +193,23 @@ class Robot(RobotInterface):
         for i, leg_angles in enumerate(translated_angles):
             leg_angles = [
                 leg_angles[0],  # Coxa angle is the same
-                self.map_range(leg_angles[1], np.pi / 2, -np.pi / 2, -np.pi / 2, np.pi / 2),
-                self.map_range(leg_angles[2], -np.pi / 2, np.pi / 2, np.pi / 2, -np.pi / 2)
+                self.map_range(leg_angles[1], np.pi / 2, -np.pi / 2, 0, np.pi),
+                self.map_range(leg_angles[2], -np.pi / 2, np.pi / 2, -np.pi / 2, np.pi / 2)
             ]
             translated_angles[i] = leg_angles
 
         # Apply offsets to the angles
-        offset = np.deg2rad(25)
+        femur_offset = np.deg2rad(25)
+        tibia_offset = np.deg2rad(7)  # TODO update the CAD and remove this offset
         for i, leg_angles in enumerate(translated_angles):
-            leg_angles[1] -= offset
-            leg_angles[2] += offset
+            leg_angles[1] -= femur_offset
+            leg_angles[2] += femur_offset
+            leg_angles[2] -= tibia_offset
+
+        # Mirror femur and tibia on the left side
+        for i, leg_angles in enumerate(translated_angles):
+            if i > 2:  # Left legs
+                leg_angles[1:] *= -1
 
         return np.array(translated_angles)
 
@@ -244,7 +251,19 @@ class Robot(RobotInterface):
             body_orientation,
             targets_in_body_frame=True
         )
+
+        print('Original:')
+        print(np.round(np.rad2deg(joint_angles), 2))
+        print()
+
         translated_angles = self.translate(joint_angles)
+        print('Converted:')
+        print(np.round(np.rad2deg(translated_angles), 2))
+        print()
+
+        print('-' * 20)
+        print()
+
         translated_angles = self.check(translated_angles)
         pulses = self.convert(translated_angles)
         return pulses

@@ -24,7 +24,7 @@
           "femur": {
             "pin": 1,
             "min_angle": -0.96,
-            "max_angle": 1.57,
+            "max_angle": 1.74,
             "cur_angle": 0.0,
             "min_pulse": 1000,
             "max_pulse": 2000,
@@ -57,7 +57,7 @@
           "femur": {
             "pin": 4,
             "min_angle": -0.96,
-            "max_angle": 1.57,
+            "max_angle": 1.74,
             "cur_angle": 0.0,
             "min_pulse": 1000,
             "max_pulse": 2000,
@@ -90,7 +90,7 @@
           "femur": {
             "pin": 7,
             "min_angle": -0.96,
-            "max_angle": 1.57,
+            "max_angle": 1.74,
             "cur_angle": 0.0,
             "min_pulse": 1000,
             "max_pulse": 2000,
@@ -122,7 +122,7 @@
           },
           "femur": {
             "pin": 10,
-            "min_angle": -0.78,
+            "min_angle": -1.74,
             "max_angle": 0.96,
             "cur_angle": 0.0,
             "min_pulse": 1000,
@@ -155,7 +155,7 @@
           },
           "femur": {
             "pin": 13,
-            "min_angle": -0.78,
+            "min_angle": -1.74,
             "max_angle": 0.96,
             "cur_angle": 0.0,
             "min_pulse": 1000,
@@ -188,7 +188,7 @@
           },
           "femur": {
             "pin": 16,
-            "min_angle": -0.78,
+            "min_angle": -1.74,
             "max_angle": 0.96,
             "cur_angle": 0.0,
             "min_pulse": 1000,

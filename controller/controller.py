@@ -135,7 +135,7 @@ class Controller:
 
     def stand(self, duration, height=100, y_offset=120):
         """
-        Make the robot stand. The height and distances are used to describe points
+        Makes the robot stand. The height and distances are used to describe points
         in leg frames. These distances are the same for each leg.
 
         Parameters:
