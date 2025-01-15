@@ -5,7 +5,7 @@ import json
 
 from controller import Controller
 from interface import Interface
-from hexapod import Robot
+from hexapod import Hexapod
 
 
 if __name__ == '__main__':
@@ -30,8 +30,8 @@ if __name__ == '__main__':
     with open(args.config) as f:
         config = json.load(f)
 
-    # Create a Robot object
-    hexapod = Robot(config[args.name])
+    # Create the Hexapod object
+    hexapod = Hexapod(config[args.name])
     controller = Controller(hexapod)
 
     # ------------------------------- Control loop ------------------------------- #
