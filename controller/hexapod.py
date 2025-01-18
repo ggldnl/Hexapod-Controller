@@ -1,8 +1,8 @@
 import numpy as np
 
-from controller.kinematics import HexapodModel, LegModel
-from controller.kinematics import transformation_matrix, rotation_matrix
-from controller.state import State
+from kinematics import HexapodModel, LegModel
+from kinematics import transformation_matrix, rotation_matrix
+from state import State
 
 
 class Hexapod(HexapodModel):

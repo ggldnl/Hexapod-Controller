@@ -46,19 +46,12 @@ if __name__ == '__main__':
         dt = args.dt
 
         # Stand and wait
-        controller.stand(2, y_offset=160)
+        controller.stand(2)
         controller.wait(1)
 
-        # Reach a configuration
-        controller.reach(
-            1,
-            body_orientation=np.array([0, 0, np.deg2rad(10)])
-        )
-        controller.reach(
-            1,
-            body_orientation=np.array([0, 0, -np.deg2rad(10)])
-        )
-        print(f'Action sequence computed.')
+        controller.set_body_pose(2, body_orientation=np.array([0, np.deg2rad(10), np.deg2rad(10)]))
+        controller.set_body_pose(2, body_orientation=np.array([0, np.deg2rad(-10), np.deg2rad(-10)]))
+        controller.set_body_pose(2, body_orientation=np.array([0, 0, 0]))
 
         while True:
 

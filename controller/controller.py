@@ -1,7 +1,7 @@
 import numpy as np
 
-from simulation.action import Action
-from simulation.state import State
+from action import Action
+from state import State
 
 
 class Controller:
