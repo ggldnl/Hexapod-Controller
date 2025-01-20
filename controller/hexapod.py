@@ -92,7 +92,7 @@ class Hexapod(HexapodModel):
     def angle_to_pulse(cls, angle, min_pulse, max_pulse):
         # return int(round(cls.map_range(angle, -np.pi/2, np.pi/2, min_pulse, max_pulse)))
         # TODO fix this
-        return angle
+        return np.rad2deg(angle)
 
     def translate(self, angles):
         """
@@ -117,6 +117,13 @@ class Hexapod(HexapodModel):
         for i, leg_angles in enumerate(translated_angles):
             leg_angles[1] -= offset
             leg_angles[2] += offset
+        
+        # Mirror some angles
+        for i, leg_angles in enumerate(translated_angles):
+            if i > 2:
+                leg_angles[1] *= -1
+            if i <= 2:
+                leg_angles[2] *= -1
 
         return np.array(translated_angles)
 
@@ -158,7 +165,7 @@ class Hexapod(HexapodModel):
             body_orientation
         )
         translated_angles = self.translate(joint_angles)
-        translated_angles = self.check(translated_angles)
+        # translated_angles = self.check(translated_angles) # TODO fix this
         pulses = self.to_pulse(translated_angles)
         return pulses
 
@@ -170,7 +177,7 @@ class Hexapod(HexapodModel):
             body_orientation
         )
         translated_angles = self.translate(joint_angles)
-        translated_angles = self.check(translated_angles)
+        # translated_angles = self.check(translated_angles) # TODO fix this
         pulses = self.to_pulse(translated_angles)
         return pulses
 

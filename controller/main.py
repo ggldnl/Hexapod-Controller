@@ -23,6 +23,7 @@ if __name__ == '__main__':
     interface.open()
     time.sleep(1)
     interface.attach_servos()
+    print(f'Connected.')
 
     # -------------------------------- Controller -------------------------------- #
 
@@ -38,16 +39,12 @@ if __name__ == '__main__':
 
     try:
 
-        interface.open()
-        print(f'Connected.')
-
         t = 0.0
         # dt = 1. / 240.
         dt = args.dt
 
-        # Stand and wait
+        # Stand and then move the body
         controller.stand(2)
-        controller.wait(1)
 
         controller.set_body_pose(2, body_orientation=np.array([0, np.deg2rad(10), np.deg2rad(10)]))
         controller.set_body_pose(2, body_orientation=np.array([0, np.deg2rad(-10), np.deg2rad(-10)]))
@@ -65,6 +62,8 @@ if __name__ == '__main__':
             # TODO fix this
             # interface.set_pulses([i for i in range(18)], joint_pulses)
             interface.set_angles([i for i in range(18)], joint_pulses)
+            
+            print("\r>> V:{}\tI:{}".format(interface.get_voltage(), interface.get_current()), end='')
 
             time.sleep(dt)
             t += dt

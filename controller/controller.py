@@ -132,8 +132,8 @@ class Controller:
                 lift_phase
             ],
             durations=[
-                duration,
-                duration
+                duration/2,
+                duration/2
             ],
             name='stand'
         )
