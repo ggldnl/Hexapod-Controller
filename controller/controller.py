@@ -53,7 +53,7 @@ class Controller:
 
         if progress == 1:
             # Target reached, advance to the next step in the action
-            print(f'Action \'{self.current_action.name}\' terminated in time {round(self.elapsed, 2)}s')
+            # print(f'Action \'{self.current_action.name}\' terminated in time {round(self.elapsed, 2)}s')
             self.current_action.advance()
             self.elapsed = 0
 
