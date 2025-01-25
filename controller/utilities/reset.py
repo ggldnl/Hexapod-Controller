@@ -1,4 +1,5 @@
-from interface import Interface
+from controller.interface import Interface
+
 import argparse
 import time
 
@@ -21,7 +22,7 @@ try:
 
     if args.leg == -1:
         # Reset all servos
-        controller.set_angles(range(18), [args.angle] * 18)
+        controller.set_angles(list(range(18)), [args.angle] * 18)
         print(f"Reset all servos to {args.angle} degrees.")
     elif args.joint == -1:
         # Reset all joints in the specified leg

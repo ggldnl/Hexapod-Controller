@@ -1,4 +1,5 @@
-from interface import Interface
+from controller.interface import Interface
+
 import argparse
 import time
 from sshkeyboard import listen_keyboard
