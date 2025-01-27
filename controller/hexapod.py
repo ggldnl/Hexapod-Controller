@@ -60,14 +60,14 @@ class Hexapod(HexapodModel):
             tibia_max_angle = legs_config[leg]["tibia"]["max_angle"]
             self.max_angles.append([coxa_max_angle, femur_max_angle, tibia_max_angle])
 
-            coxa_min_pulse = legs_config[leg]["coxa"]["min_pulse"]
-            femur_min_pulse = legs_config[leg]["femur"]["min_pulse"]
-            tibia_min_pulse = legs_config[leg]["tibia"]["min_pulse"]
+            coxa_min_pulse = legs_config[leg]["coxa"]["lower_pulse"]
+            femur_min_pulse = legs_config[leg]["femur"]["lower_pulse"]
+            tibia_min_pulse = legs_config[leg]["tibia"]["lower_pulse"]
             self.min_pulses.append([coxa_min_pulse, femur_min_pulse, tibia_min_pulse])
 
-            coxa_max_pulse = legs_config[leg]["coxa"]["max_pulse"]
-            femur_max_pulse = legs_config[leg]["femur"]["max_pulse"]
-            tibia_max_pulse = legs_config[leg]["tibia"]["max_pulse"]
+            coxa_max_pulse = legs_config[leg]["coxa"]["upper_pulse"]
+            femur_max_pulse = legs_config[leg]["femur"]["upper_pulse"]
+            tibia_max_pulse = legs_config[leg]["tibia"]["upper_pulse"]
             self.max_pulses.append([coxa_max_pulse, femur_max_pulse, tibia_max_pulse])
 
         super().__init__(legs=legs, leg_frames=leg_frames)
@@ -82,17 +82,23 @@ class Hexapod(HexapodModel):
         self.state = State(legs_positions, body_position, body_orientation, joint_values)
 
     def get_joint_values(self):
-        return self.state.joint_values
+        joint_angles = self.state.joint_angles
+        translated_joint_angles = self.translate(joint_angles)
+        # translated_joint_angles = self.check(translated_joint_angles)  # TODO fix this
+        return self.to_pulse(translated_joint_angles)
 
     @staticmethod
     def map_range(value, in_min, in_max, out_min, out_max):
         return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
     @classmethod
-    def angle_to_pulse(cls, angle, min_pulse, max_pulse):
-        # return int(round(cls.map_range(angle, -np.pi/2, np.pi/2, min_pulse, max_pulse)))
-        # TODO fix this
-        return np.rad2deg(angle)
+    def angle_to_pulse(cls, angle_radians, lower_pulse, upper_pulse, lower_rad=-np.pi/4, upper_rad=np.pi/4):
+        """
+        Linear mapping of radians to PWM values using two calibration points.
+
+        y = y1 + (x - x1) * (y2 - y1) / (x2 - x1)
+        """
+        return lower_pulse + (angle_radians - lower_rad) * (upper_pulse - lower_pulse) / (upper_rad - lower_rad)
 
     def translate(self, angles):
         """
@@ -156,30 +162,6 @@ class Hexapod(HexapodModel):
                 leg_pulses.append(self.angle_to_pulse(angle, min_pulse, max_pulse))
             joint_pulses.append(leg_pulses)
         return np.array(joint_pulses)
-
-    def inverse_kinematics_leg_frame(self, legs_positions, body_position=None, body_orientation=None):
-        # All the target points are supposed to be in leg frame
-        joint_angles = super().inverse_kinematics_leg_frame(
-            legs_positions,
-            body_position,
-            body_orientation
-        )
-        translated_angles = self.translate(joint_angles)
-        # translated_angles = self.check(translated_angles) # TODO fix this
-        pulses = self.to_pulse(translated_angles)
-        return pulses
-
-    def inverse_kinematics_origin_frame(self, legs_positions, body_position=None, body_orientation=None):
-        # All the target points are supposed to be in body frame
-        joint_angles = super().inverse_kinematics_origin_frame(
-            legs_positions,
-            body_position,
-            body_orientation
-        )
-        translated_angles = self.translate(joint_angles)
-        # translated_angles = self.check(translated_angles) # TODO fix this
-        pulses = self.to_pulse(translated_angles)
-        return pulses
 
 
 if __name__ == '__main__':

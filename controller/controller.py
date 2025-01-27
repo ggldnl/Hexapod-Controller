@@ -99,6 +99,8 @@ class Controller:
 
         assert duration > 0, f"The duration cannot be < 0."
 
+        # TODO use inverse_kinematics_leg_frame
+
         body_position_extend_phase = np.zeros(3)
         body_orientation_extend_phase = np.zeros(3)
         legs_positions_extend_phase = self.hexapod.translate_to_origin_frame(
@@ -141,8 +143,8 @@ class Controller:
                 lift_phase
             ],
             durations=[
-                duration/2,
-                duration/2
+                duration / 2,
+                duration / 2
             ],
             name='stand'
         )
@@ -158,12 +160,9 @@ class Controller:
 
         assert duration > 0, f"The duration cannot be < 0."
 
-        # Get the last state of the last action of the queue
-        current_state = self.get_last_state_in_queue()
-
         wait_action = Action(
             states=[
-                current_state.copy()
+                self.get_last_state_in_queue()
             ],
             durations=[duration],
             name='wait'
@@ -198,7 +197,7 @@ class Controller:
         if body_orientation is not None:
             current_state.body_orientation = body_orientation
 
-        current_state.joint_values = self.hexapod.inverse_kinematics_origin_frame(
+        current_state.joint_angles = self.hexapod.inverse_kinematics_origin_frame(
             current_state.legs_positions,
             current_state.body_position,
             current_state.body_orientation
@@ -239,7 +238,7 @@ class Controller:
         current_legs_positions = current_state.legs_positions
         current_legs_positions[indices] = legs_positions
 
-        current_state.joint_values = self.hexapod.inverse_kinematics_origin_frame(
+        current_state.joint_angles = self.hexapod.inverse_kinematics_origin_frame(
             current_legs_positions,
             current_state.body_position,
             current_state.body_orientation
@@ -249,12 +248,14 @@ class Controller:
             states=[
                 current_state
             ],
-            durations=[duration],
-            name='set_leg_position'
+            durations=[
+                duration
+            ],
+            name='set_legs_positions'
         )
         self.add_action(reach_action)
 
-    def reach(self, duration, legs_positions=None, body_position=None, body_orientation=None):
+    def set_configuration(self, duration, legs_positions=None, body_position=None, body_orientation=None):
         """
         Reach a target configuration (body pose + legs positions). The legs will move directly
         to the target position.
@@ -289,7 +290,7 @@ class Controller:
         if body_orientation is not None:
             current_state.body_orientation = body_orientation
 
-        current_state.joint_values = self.hexapod.inverse_kinematics_origin_frame(
+        current_state.joint_angles = self.hexapod.inverse_kinematics_origin_frame(
             current_state.legs_positions,
             current_state.body_position,
             current_state.body_orientation
@@ -299,10 +300,43 @@ class Controller:
             states=[
                 current_state
             ],
-            durations=[duration],
-            name='reach'
+            durations=[
+                duration
+            ],
+            name='set_configuration'
         )
         self.add_action(reach_action)
+
+    def reset(self, duration):
+        """
+        Reset the robot setting 0 to all the servos.
+
+        Parameters:
+            duration (float): Time in seconds to interpolate to the zero position.
+        """
+
+        assert duration > 0, f"The duration cannot be < 0."
+
+        reset_joint_angles = np.zeros((6, 3))
+        reset_legs_positions = self.hexapod.forward_kinematics(reset_joint_angles, np.zeros(3), np.zeros(3))
+
+        reset_phase = State(
+            reset_legs_positions,
+            np.zeros(3),
+            np.zeros(3),
+            reset_joint_angles
+        )
+
+        sit_action = Action(
+            states=[
+                reset_phase
+            ],
+            durations=[
+                duration
+            ],
+            name='reset'
+        )
+        self.add_action(sit_action)
 
     def sit(self, duration):
         """
