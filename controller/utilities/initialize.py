@@ -12,7 +12,7 @@ def read_mid_pulses(csv_file_path, has_header):
         if has_header:
             next(reader)  # Skip header row
         for row in reader:
-            mid_pulses.append(int(row[1]))  # Mid pulse is the second column
+            mid_pulses.append(float(row[1]))  # Mid pulse is the second column
     return mid_pulses
 
 

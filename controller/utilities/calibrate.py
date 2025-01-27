@@ -36,9 +36,12 @@ max_pulse = None
 # Data for CSV
 servo_pulses = []
 
+# We have to raise a KeyboardInterrupt only once
+done = False
+
 # Function to handle key presses
 def on_key_press(key):
-    global current_servo, current_pulse, min_pulse, max_pulse
+    global current_servo, current_pulse, min_pulse, max_pulse, done
 
     if key == 'down':
         # Increment the pulse, but not beyond the maximum
@@ -82,7 +85,9 @@ def on_key_press(key):
             if current_servo >= NUM_SERVOS:
                 print("All servos calibrated. Saving results and exiting program...")
                 save_to_csv()
-                raise KeyboardInterrupt
+                if not done:
+                    done = True
+                    raise KeyboardInterrupt
             min_pulse = None
             max_pulse = None
             current_pulse = (PULSE_MIN + PULSE_MAX) / 2  # Reset pulse to midpoint
@@ -107,12 +112,12 @@ def save_to_csv():
 def print_status():
     extra_spaces = ' ' * 10  # Needed to clear the line
     if min_pulse is None:
-        print(f"Servo {current_servo}: min pulse={current_pulse:5.2f}{extra_spaces}\r", end="")
+        print(f"Servo {current_servo}: min pulse = {current_pulse:5.2f}{extra_spaces}\r", end="")
     elif max_pulse is None:
-        print(f"Servo {current_servo}: min pulse={min_pulse:5.2f}\tmax pulse={current_pulse:5.2f}{extra_spaces}\r", end="")
+        print(f"Servo {current_servo}: min pulse = {min_pulse:5.2f}\tmax pulse = {current_pulse:5.2f}{extra_spaces}\r", end="")
     else:
         mid_pulse = (min_pulse + max_pulse) // 2
-        print(f"Servo {current_servo}: min pulse={min_pulse:5.2f}\tmax pulse={max_pulse:5.2f}\tmid pulse={mid_pulse:5.2f}{extra_spaces}\r", end="")
+        print(f"Servo {current_servo}: min pulse = {min_pulse:5.2f}\tmax pulse = {max_pulse:5.2f}\tmid pulse = {mid_pulse:5.2f}{extra_spaces}\r", end="")
 
 # Main function
 def main():
