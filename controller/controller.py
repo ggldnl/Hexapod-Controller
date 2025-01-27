@@ -99,8 +99,6 @@ class Controller:
 
         assert duration > 0, f"The duration cannot be < 0."
 
-        # TODO use inverse_kinematics_leg_frame
-
         body_position_extend_phase = np.zeros(3)
         body_orientation_extend_phase = np.zeros(3)
         legs_positions_extend_phase = self.hexapod.translate_to_origin_frame(
@@ -338,7 +336,7 @@ class Controller:
         )
         self.add_action(sit_action)
 
-    def sit(self, duration):
+    def sit(self, duration, height=100, y_offset=60):
         """
         Make the robot sit, retracting the legs near their maximum. In this case
         we don't know the body position and orientation so we will perform
@@ -385,16 +383,17 @@ class Controller:
         )
 
         # Retract phase
-        retract_joint_values = self.hexapod.min_angles
-
-        new_legs_positions = self.hexapod.forward_kinematics(
-            retract_joint_values,
+        retract_legs_positions = self.hexapod.translate_to_origin_frame(
+            np.array([[y_offset, 0, height] for _ in range(6)])
+        )
+        retract_joint_values = self.hexapod.inverse_kinematics_origin_frame(
+            retract_legs_positions,
             np.zeros(3),
             np.zeros(3)
         )
 
         retract_phase = State(
-            new_legs_positions,
+            retract_legs_positions,
             np.zeros(3),
             np.zeros(3),
             retract_joint_values
