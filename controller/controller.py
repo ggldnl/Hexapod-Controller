@@ -385,19 +385,7 @@ class Controller:
         )
 
         # Retract phase
-
-        # TODO fix this, for the real robot this should be better
-        # retract_joint_values = self.hexapod.min_angles
-        retract_joint_values = np.array(
-            [
-                [0, -np.deg2rad(60), np.deg2rad(90)],
-                [0, -np.deg2rad(60), np.deg2rad(90)],
-                [0, -np.deg2rad(60), np.deg2rad(90)],
-                [0, np.deg2rad(60), np.deg2rad(90)],
-                [0, np.deg2rad(60), np.deg2rad(90)],
-                [0, np.deg2rad(60), np.deg2rad(90)]
-            ]
-        )
+        retract_joint_values = self.hexapod.min_angles
 
         new_legs_positions = self.hexapod.forward_kinematics(
             retract_joint_values,
