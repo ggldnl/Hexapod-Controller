@@ -107,15 +107,16 @@ def save_to_csv():
 def print_status():
     extra_spaces = ' ' * 10  # Needed to clear the line
     if min_pulse is None:
-        print(f"Servo {current_servo}: min pulse={current_pulse}{extra_spaces}\r", end="")
+        print(f"Servo {current_servo}: min pulse={current_pulse:5.2f}{extra_spaces}\r", end="")
     elif max_pulse is None:
-        print(f"Servo {current_servo}: min pulse={min_pulse}\tmax pulse={current_pulse}{extra_spaces}\r", end="")
+        print(f"Servo {current_servo}: min pulse={min_pulse:5.2f}\tmax pulse={current_pulse:5.2f}{extra_spaces}\r", end="")
     else:
         mid_pulse = (min_pulse + max_pulse) // 2
-        print(f"Servo {current_servo}: min pulse={min_pulse}\tmax pulse={max_pulse}\tmid pulse={mid_pulse}{extra_spaces}\r", end="")
+        print(f"Servo {current_servo}: min pulse={min_pulse:5.2f}\tmax pulse={max_pulse:5.2f}\tmid pulse={mid_pulse:5.2f}{extra_spaces}\r", end="")
 
 # Main function
 def main():
+
     print("Connecting to servo controller...")
     controller.open()
     controller.attach_servos()
