@@ -305,7 +305,7 @@ class Controller:
         )
         self.add_action(reach_action)
 
-    def sit(self, duration, height=30, y_offset=30):
+    def sit(self, duration, height=30, y_offset=40):
         """
         Make the robot sit, retracting the legs near their maximum. In this case
         we don't know the body position and orientation so we will perform
