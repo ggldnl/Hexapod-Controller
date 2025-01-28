@@ -70,9 +70,7 @@ if __name__ == '__main__':
             joint_pulses = joint_pulses.reshape(-1).tolist()
 
             # Set them
-            # TODO fix this
-            # interface.set_pulses([i for i in range(18)], joint_pulses)
-            interface.set_angles([i for i in range(18)], joint_pulses)
+            interface.set_pulses([i for i in range(18)], joint_pulses)
 
             # print("\r>> V:{}\tI:{}".format(round(interface.get_voltage(), 2), round(interface.get_current(), 2)), end='')
 
