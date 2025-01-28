@@ -353,7 +353,7 @@ class Controller:
 
         # Retract phase
         retract_legs_positions = self.hexapod.translate_to_origin_frame(
-            np.array([[0, y_offset, height] for _ in range(6)])
+            np.array([[y_offset, 0, height] for _ in range(6)])
         )
         retract_joint_values = self.hexapod.inverse_kinematics_origin_frame(
             retract_legs_positions,
