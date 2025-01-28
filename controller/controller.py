@@ -305,38 +305,7 @@ class Controller:
         )
         self.add_action(reach_action)
 
-    def reset(self, duration):
-        """
-        Reset the robot setting 0 to all the servos.
-
-        Parameters:
-            duration (float): Time in seconds to interpolate to the zero position.
-        """
-
-        assert duration > 0, f"The duration cannot be < 0."
-
-        reset_joint_angles = np.zeros((6, 3))
-        reset_legs_positions = self.hexapod.forward_kinematics(reset_joint_angles, np.zeros(3), np.zeros(3))
-
-        reset_phase = State(
-            reset_legs_positions,
-            np.zeros(3),
-            np.zeros(3),
-            reset_joint_angles
-        )
-
-        sit_action = Action(
-            states=[
-                reset_phase
-            ],
-            durations=[
-                duration
-            ],
-            name='reset'
-        )
-        self.add_action(sit_action)
-
-    def sit(self, duration, height=100, y_offset=60):
+    def sit(self, duration, height=30, y_offset=30):
         """
         Make the robot sit, retracting the legs near their maximum. In this case
         we don't know the body position and orientation so we will perform

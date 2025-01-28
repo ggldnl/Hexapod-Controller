@@ -50,6 +50,17 @@ if __name__ == '__main__':
         controller.set_body_pose(2, body_orientation=np.array([0, np.deg2rad(-10), np.deg2rad(-10)]))
         controller.set_body_pose(2, body_orientation=np.array([0, 0, 0]))
 
+        # Hop some legs
+        current_leg_position = controller.get_last_state_in_queue().legs_positions[0]
+        new_leg_position = current_leg_position.copy()
+        new_leg_position[2] = 60
+
+        controller.set_legs_positions(2, new_leg_position, indices=[0])
+        controller.set_legs_positions(2, current_leg_position, indices=[0])
+
+        # Homing
+        controller.sit(5)
+
         while True:
 
             # Get the joint angles as pulse widths
