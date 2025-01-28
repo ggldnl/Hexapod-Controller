@@ -305,7 +305,7 @@ class Controller:
         )
         self.add_action(reach_action)
 
-    def sit(self, duration, height=30, y_offset=40):
+    def sit(self, duration, height=30, y_offset=50):
         """
         Make the robot sit, retracting the legs near their maximum. In this case
         we don't know the body position and orientation so we will perform
@@ -353,7 +353,7 @@ class Controller:
 
         # Retract phase
         retract_legs_positions = self.hexapod.translate_to_origin_frame(
-            np.array([[y_offset, 0, height] for _ in range(6)])
+            np.array([[0, y_offset, height] for _ in range(6)])
         )
         retract_joint_values = self.hexapod.inverse_kinematics_origin_frame(
             retract_legs_positions,
