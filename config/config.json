@@ -17,8 +17,8 @@
             "min_angle": -1.5708,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 2045,
-            "upper_pulse": 955,
+            "lower_pulse": 955,
+            "upper_pulse": 2045,
             "length": 42
           },
           "femur": {
@@ -26,8 +26,8 @@
             "min_angle": -1.5708,
             "max_angle": 0.785398,
             "cur_angle": 0.0,
-            "lower_pulse": 2065,
-            "upper_pulse": 955,
+            "lower_pulse": 955,
+            "upper_pulse": 2065,
             "length": 70
           },
           "tibia": {
@@ -35,8 +35,8 @@
             "min_angle": -1.5708,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 2055,
-            "upper_pulse": 1005,
+            "lower_pulse": 1005,
+            "upper_pulse": 2055,
             "length": 90
           }
         },
@@ -50,8 +50,8 @@
             "min_angle": -1.5708,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 2065,
-            "upper_pulse": 960,
+            "lower_pulse": 960,
+            "upper_pulse": 2065,
             "length": 42
           },
           "femur": {
@@ -59,8 +59,8 @@
             "min_angle": -1.5708,
             "max_angle": 0.785398,
             "cur_angle": 0.0,
-            "lower_pulse": 2010,
-            "upper_pulse": 925,
+            "lower_pulse": 925,
+            "upper_pulse": 2010,
             "length": 70
           },
           "tibia": {
@@ -68,8 +68,8 @@
             "min_angle": -1.5708,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 2115,
-            "upper_pulse": 1025,
+            "lower_pulse": 1025,
+            "upper_pulse": 2115,
             "length": 90
           }
         },
@@ -83,8 +83,8 @@
             "min_angle": -1.5708,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 2010,
-            "upper_pulse": 930,
+            "lower_pulse": 930,
+            "upper_pulse": 2010,
             "length": 42
           },
           "femur": {
@@ -92,8 +92,8 @@
             "min_angle": -1.5708,
             "max_angle": 0.785398,
             "cur_angle": 0.0,
-            "lower_pulse": 1980,
-            "upper_pulse": 900,
+            "lower_pulse": 900,
+            "upper_pulse": 1980,
             "length": 70
           },
           "tibia": {
@@ -101,8 +101,8 @@
             "min_angle": -1.5708,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 2070,
-            "upper_pulse": 980,
+            "lower_pulse": 980,
+            "upper_pulse": 2070,
             "length": 90
           }
         },
@@ -116,8 +116,8 @@
             "min_angle": -1.5708,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 1000,
-            "upper_pulse": 2000,
+            "lower_pulse": 915,
+            "upper_pulse": 2030,
             "length": 42
           },
           "femur": {
@@ -125,8 +125,8 @@
             "min_angle": -0.785398,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 1000,
-            "upper_pulse": 2000,
+            "lower_pulse": 1025,
+            "upper_pulse": 2095,
             "length": 70
           },
           "tibia": {
@@ -134,8 +134,8 @@
             "min_angle": -1.5708,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 1000,
-            "upper_pulse": 2000,
+            "lower_pulse": 885,
+            "upper_pulse": 1960,
             "length": 90
           }
         },
@@ -149,8 +149,8 @@
             "min_angle": -1.5708,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 1000,
-            "upper_pulse": 2000,
+            "lower_pulse": 940,
+            "upper_pulse": 2050,
             "length": 42
           },
           "femur": {
@@ -158,8 +158,8 @@
             "min_angle": -0.785398,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 1000,
-            "upper_pulse": 2000,
+            "lower_pulse": 965,
+            "upper_pulse": 2040,
             "length": 70
           },
           "tibia": {
@@ -167,8 +167,8 @@
             "min_angle": -1.5708,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 1000,
-            "upper_pulse": 2000,
+            "lower_pulse": 890,
+            "upper_pulse": 1990,
             "length": 90
           }
         },
@@ -182,8 +182,8 @@
             "min_angle": -1.5708,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 1000,
-            "upper_pulse": 2000,
+            "lower_pulse": 1005,
+            "upper_pulse": 2105,
             "length": 42
           },
           "femur": {
@@ -191,8 +191,8 @@
             "min_angle": -0.785398,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 1000,
-            "upper_pulse": 2000,
+            "lower_pulse": 1025,
+            "upper_pulse": 2080,
             "length": 70
           },
           "tibia": {
@@ -200,8 +200,8 @@
             "min_angle": -1.5708,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 1000,
-            "upper_pulse": 2000,
+            "lower_pulse": 1045,
+            "upper_pulse": 2090,
             "length": 90
           }
         }
