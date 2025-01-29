@@ -1,5 +1,6 @@
 import serial
 import struct
+import serial.tools.list_ports
 
 
 class Interface:
@@ -205,6 +206,16 @@ class Interface:
         args = bytes(comm)
         self.send_command(0x0B, args)
         return self.ser.read(1)
+
+    @classmethod
+    def list_interfaces(cls):
+        """
+        Lists available serial interfaces.
+
+        Returns:
+            list: A list of available serial port device paths.
+        """
+        return [port.device for port in serial.tools.list_ports.comports()]
 
 
 if __name__ == '__main__':
