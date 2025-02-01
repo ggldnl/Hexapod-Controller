@@ -206,6 +206,28 @@ class Interface:
         self.send_command(0x0B, args)
         return self.ser.read(1)
 
+    def connect_relay(self):
+        """
+        Connects the relay, giving power to the servos.
+
+        Returns:
+            bytes: The response from the controller.
+        """
+        self.send_command(0x0C, {})
+        return self.ser.read(1)
+
+    def disconnect_relay(self):
+        """
+        Disconnects the relay, preventing the servos from getting power.
+        This could be useful if the robots gets stuck and the motors try
+        with all their will to move, damaging themselves.
+
+        Returns:
+            bytes: The response from the controller.
+        """
+        self.send_command(0x0D, {})
+        return self.ser.read(1)
+
 
 if __name__ == '__main__':
 
