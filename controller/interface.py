@@ -66,7 +66,7 @@ class Interface:
         """
         self.send_command(0x01)
         response = self.ser.read(4)  # Float is 4 bytes
-        return struct.unpack('f', response)[0]
+        return round(struct.unpack('f', response)[0], 2)
 
     def get_current(self):
         """
@@ -77,7 +77,7 @@ class Interface:
         """
         self.send_command(0x02)
         response = self.ser.read(4)  # Float is 4 bytes
-        return struct.unpack('f', response)[0]
+        return round(struct.unpack('f', response)[0], 2)
 
     def read_sensor(self, pin):
         """
