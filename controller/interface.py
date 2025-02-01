@@ -13,7 +13,7 @@ class Interface:
         ser (serial.Serial): The serial connection instance.
     """
 
-    def __init__(self, dev='/dev/ttyACM0', baud=115200):
+    def __init__(self, dev='/dev/ttyAMA0', baud=115200):
         """
         Initializes the Interface with the given device and baud rate.
 

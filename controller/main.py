@@ -14,12 +14,13 @@ if __name__ == '__main__':
     parser.add_argument("-c", "--config", type=str, default='config/config.json', help="Path to the robot's configuration file")
     parser.add_argument('-n', '--name', type=str, default='hexapod', help="Name of the robot in the config")
     parser.add_argument('-d', '--dt', type=float, default=0.02, help="Time delta for update (default=0.02=50Hz)")
+    parser.add_argument('-p', '--port', type=str, default='/dev/ttyAMA0', help="Serial device.")
 
     args = parser.parse_args()
 
     # --------------------------------- Interface -------------------------------- #
 
-    interface = Interface()
+    interface = Interface(args.port)
     interface.open()
     time.sleep(1)
     interface.attach_servos()
