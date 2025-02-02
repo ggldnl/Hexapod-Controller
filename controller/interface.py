@@ -48,7 +48,8 @@ class Interface:
 
     def send_command(self, opcode, *args):
         """
-        Sends a command with an opcode and optional arguments.
+        Sends a command with an opcode and optional arguments, adding leading 0xAA and trailing 0xFF bytes
+        as packet delimiters.
 
         Args:
             opcode (int): The command opcode to be sent.
@@ -64,6 +65,23 @@ class Interface:
         self.ser.write(packet)
         self.ser.flush()
 
+    def get_response(self, num_bytes):
+        """
+        Reads the response after a command.
+        If the delimiters are enabled, strips leading 0xAA and trailing 0xFF bytes.
+
+        Args:
+            num_bytes (int): Number of bytes that we expect.
+
+        Returns:
+            bytes: Unpacked bytes.
+        """
+
+        # Read the response, we expect 2 more bits, one for leading 0xAA and one for trailing 0xFF
+        response = self.ser.read(num_bytes + 2)
+        payload = response[1:-1]
+        return payload
+
     def get_voltage(self):
         """
         Sends a command to read the voltage from the controller.
@@ -72,7 +90,7 @@ class Interface:
             float: The voltage value as a floating-point number.
         """
         self.send_command(0x01)
-        response = self.ser.read(4)  # Float is 4 bytes
+        response = self.get_response(4) # Float is 4 bytes
         return round(struct.unpack('<f', response)[0], 2)
 
     def get_current(self):
@@ -83,7 +101,7 @@ class Interface:
             float: The current value as a floating-point number.
         """
         self.send_command(0x02)
-        response = self.ser.read(4)  # Float is 4 bytes
+        response = self.get_response(4)  # Float is 4 bytes
         return round(struct.unpack('<f', response)[0], 2)
 
     def read_sensor(self, pin):
@@ -97,7 +115,7 @@ class Interface:
             float: The sensor value as a floating-point number.
         """
         self.send_command(0x03, bytes([pin]))
-        response = self.ser.read(4)  # Float is 4 bytes
+        response = self.get_response(4)  # Float is 4 bytes
         return struct.unpack('<f', response)[0]
 
     def set_led(self, pin, r=0, g=0, b=255):
@@ -114,7 +132,7 @@ class Interface:
             bytes: The response from the controller.
         """
         self.send_command(0x04, bytes([pin, r, g, b]))
-        return self.ser.read(1)
+        return self.get_response(1)
 
     def set_leds(self, pins, arr_rgb_tuples):
         """
@@ -130,7 +148,7 @@ class Interface:
         comm = [len(pins)] + [elem for pin, rgb in zip(pins, arr_rgb_tuples) for elem in [pin] + list(rgb)]
         args = bytes(comm)
         self.send_command(0x05, args)
-        return self.ser.read(1)
+        return self.get_response(1)
 
     def attach_servos(self):
         """
@@ -140,7 +158,7 @@ class Interface:
             bytes: The response from the controller.
         """
         self.send_command(0x06)
-        return self.ser.read(1)
+        return self.get_response(1)
 
     def detach_servos(self):
         """
@@ -150,7 +168,7 @@ class Interface:
             bytes: The response from the controller.
         """
         self.send_command(0x07)
-        return self.ser.read(1)
+        return self.get_response(1)
 
     def set_pulse(self, pin, pulse):
         """
@@ -165,7 +183,7 @@ class Interface:
         """
         pulse_bytes = struct.pack('<f', pulse)
         self.send_command(0x08, bytes([pin]), pulse_bytes)
-        return self.ser.read(1)
+        return self.get_response(1)
 
     def set_pulses(self, pins, pulses):
         """
@@ -181,7 +199,7 @@ class Interface:
         comm = [len(pins)] + [byte for pin, value in zip(pins, pulses) for byte in [pin] + list(struct.pack('<f', value))]
         args = bytes(comm)
         self.send_command(0x09, args)
-        return self.ser.read(1)
+        return self.get_response(1)
 
     def set_angle(self, pin, angle):
         """
@@ -196,7 +214,7 @@ class Interface:
         """
         pulse_bytes = struct.pack('<f', angle)
         self.send_command(0x0A, bytes([pin]), pulse_bytes)
-        return self.ser.read(1)
+        return self.get_response(1)
 
     def set_angles(self, pins, angles):
         """
@@ -212,7 +230,7 @@ class Interface:
         comm = [len(pins)] + [byte for pin, value in zip(pins, angles) for byte in [pin] + list(struct.pack('<f', value))]
         args = bytes(comm)
         self.send_command(0x0B, args)
-        return self.ser.read(1)
+        return self.get_response(1)
 
     def connect_relay(self):
         """
@@ -222,7 +240,7 @@ class Interface:
             bytes: The response from the controller.
         """
         self.send_command(0x0C)
-        return self.ser.read(1)
+        return self.get_response(1)
 
     def disconnect_relay(self):
         """
@@ -234,7 +252,7 @@ class Interface:
             bytes: The response from the controller.
         """
         self.send_command(0x0D)
-        return self.ser.read(1)
+        return self.get_response(1)
 
     @classmethod
     def list_interfaces(cls):
