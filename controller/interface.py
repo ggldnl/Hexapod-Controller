@@ -40,6 +40,7 @@ class Interface:
     def __enter__(self):
         """Context manager entry method to open the connection."""
         self.open()
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit method to close the connection."""
@@ -53,9 +54,9 @@ class Interface:
             opcode (int): The command opcode to be sent.
             *args: Additional arguments to be sent after the opcode.
         """
-        self.ser.write(bytes([opcode]))
-        for arg in args:
-            self.ser.write(arg)
+        data = bytes([opcode]) + b''.join(arg if isinstance(arg, bytes) else bytes([arg]) for arg in args)
+        self.ser.write(bytes(data))
+        self.ser.flush()
 
     def get_voltage(self):
         """
@@ -66,7 +67,7 @@ class Interface:
         """
         self.send_command(0x01)
         response = self.ser.read(4)  # Float is 4 bytes
-        return round(struct.unpack('f', response)[0], 2)
+        return round(struct.unpack('<f', response)[0], 2)
 
     def get_current(self):
         """
@@ -77,7 +78,7 @@ class Interface:
         """
         self.send_command(0x02)
         response = self.ser.read(4)  # Float is 4 bytes
-        return round(struct.unpack('f', response)[0], 2)
+        return round(struct.unpack('<f', response)[0], 2)
 
     def read_sensor(self, pin):
         """
@@ -91,7 +92,7 @@ class Interface:
         """
         self.send_command(0x03, bytes([pin]))
         response = self.ser.read(4)  # Float is 4 bytes
-        return struct.unpack('f', response)[0]
+        return struct.unpack('<f', response)[0]
 
     def set_led(self, pin, r=0, g=0, b=255):
         """
@@ -156,7 +157,7 @@ class Interface:
         Returns:
             bytes: The response from the controller.
         """
-        pulse_bytes = struct.pack('f', pulse)
+        pulse_bytes = struct.pack('<f', pulse)
         self.send_command(0x08, bytes([pin]), pulse_bytes)
         return self.ser.read(1)
 
@@ -171,7 +172,7 @@ class Interface:
         Returns:
             bytes: The response from the controller.
         """
-        comm = [len(pins)] + [byte for pin, value in zip(pins, pulses) for byte in [pin] + list(struct.pack('f', value))]
+        comm = [len(pins)] + [byte for pin, value in zip(pins, pulses) for byte in [pin] + list(struct.pack('<f', value))]
         args = bytes(comm)
         self.send_command(0x09, args)
         return self.ser.read(1)
@@ -187,7 +188,7 @@ class Interface:
         Returns:
             bytes: The response from the controller.
         """
-        pulse_bytes = struct.pack('f', angle)
+        pulse_bytes = struct.pack('<f', angle)
         self.send_command(0x0A, bytes([pin]), pulse_bytes)
         return self.ser.read(1)
 
@@ -202,20 +203,10 @@ class Interface:
         Returns:
             bytes: The response from the controller.
         """
-        comm = [len(pins)] + [byte for pin, value in zip(pins, angles) for byte in [pin] + list(struct.pack('f', value))]
+        comm = [len(pins)] + [byte for pin, value in zip(pins, angles) for byte in [pin] + list(struct.pack('<f', value))]
         args = bytes(comm)
         self.send_command(0x0B, args)
         return self.ser.read(1)
-
-    @classmethod
-    def list_interfaces(cls):
-        """
-        Lists available serial interfaces.
-
-        Returns:
-            list: A list of available serial port device paths.
-        """
-        return [port.device for port in serial.tools.list_ports.comports()]
 
     def connect_relay(self):
         """
@@ -224,7 +215,7 @@ class Interface:
         Returns:
             bytes: The response from the controller.
         """
-        self.send_command(0x0C, {})
+        self.send_command(0x0C)
         return self.ser.read(1)
 
     def disconnect_relay(self):
@@ -236,8 +227,18 @@ class Interface:
         Returns:
             bytes: The response from the controller.
         """
-        self.send_command(0x0D, {})
+        self.send_command(0x0D)
         return self.ser.read(1)
+
+    @classmethod
+    def list_interfaces(cls):
+        """
+        Lists available serial interfaces.
+
+        Returns:
+            list: A list of available serial port device paths.
+        """
+        return [port.device for port in serial.tools.list_ports.comports()]
 
 
 if __name__ == '__main__':
