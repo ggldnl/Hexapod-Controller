@@ -54,8 +54,14 @@ class Interface:
             opcode (int): The command opcode to be sent.
             *args: Additional arguments to be sent after the opcode.
         """
-        data = bytes([opcode]) + b''.join(arg if isinstance(arg, bytes) else bytes([arg]) for arg in args)
-        self.ser.write(bytes(data))
+
+        # Concatenate opcode and arguments into a single byte sequence
+        payload = bytes([opcode]) + b''.join(arg if isinstance(arg, bytes) else bytes([arg]) for arg in args)
+
+        # Wrap with start and end markers
+        packet = bytes([0xAA]) + payload + bytes([0xFF])
+
+        self.ser.write(packet)
         self.ser.flush()
 
     def get_voltage(self):
