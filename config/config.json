@@ -26,8 +26,8 @@
             "min_angle": -1.5708,
             "max_angle": 0.785398,
             "cur_angle": 0.0,
-            "lower_pulse": 955,
-            "upper_pulse": 2065,
+            "lower_pulse": 975,
+            "upper_pulse": 1915,
             "length": 70
           },
           "tibia": {
@@ -59,8 +59,8 @@
             "min_angle": -1.5708,
             "max_angle": 0.785398,
             "cur_angle": 0.0,
-            "lower_pulse": 925,
-            "upper_pulse": 2010,
+            "lower_pulse": 955,
+            "upper_pulse": 2025,
             "length": 70
           },
           "tibia": {
@@ -92,8 +92,8 @@
             "min_angle": -1.5708,
             "max_angle": 0.785398,
             "cur_angle": 0.0,
-            "lower_pulse": 900,
-            "upper_pulse": 1980,
+            "lower_pulse": 1040,
+            "upper_pulse": 2005,
             "length": 70
           },
           "tibia": {
@@ -125,8 +125,8 @@
             "min_angle": -0.785398,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 1025,
-            "upper_pulse": 2095,
+            "lower_pulse": 945,
+            "upper_pulse": 1920,
             "length": 70
           },
           "tibia": {
@@ -191,8 +191,8 @@
             "min_angle": -0.785398,
             "max_angle": 1.5708,
             "cur_angle": 0.0,
-            "lower_pulse": 1025,
-            "upper_pulse": 2080,
+            "lower_pulse": 1010,
+            "upper_pulse": 1950,
             "length": 70
           },
           "tibia": {
