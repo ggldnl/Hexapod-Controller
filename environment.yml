@@ -2,5 +2,7 @@ name: hexapod
 channels:
   - conda-forge
 dependencies:
-  - numpy
+  - pip
   - pyserial
+  - pip:
+    - sshkeyboard
