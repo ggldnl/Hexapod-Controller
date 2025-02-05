@@ -1,4 +1,4 @@
-from .path_setup import *
+from path_setup import *
 from controller.interface import Interface
 
 import argparse
