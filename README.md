@@ -48,4 +48,30 @@ conda activate hexapod
 
 ## 🚀 Delpoy
 
-TODO
+Run the main script on the Controller. The code will continuously generate and send messages to the Operator.
+
+```bash
+python controller/main.py
+```
+
+The main script contains a list of predefined actions to showcase the capabilities of the robot. Old actions can be modified and new actions can be added easily:
+
+```python
+# Stand (2 seconds)
+controller.stand(2)
+
+# Move the body
+controller.set_body_pose(2, body_orientation=np.array([0, np.deg2rad(10), np.deg2rad(10)]))
+controller.set_body_pose(2, body_orientation=np.array([0, np.deg2rad(-10), np.deg2rad(-10)]))
+controller.set_body_pose(2, body_orientation=np.array([0, 0, 0]))
+
+# Raise a leg by a certain amount
+leg_index = 0
+current_leg_position = controller.get_last_state_in_queue().legs_positions[leg_index]
+x, y, z = current_leg_position
+amount = 50
+controller.set_legs_positions(1, np.array([x, y, z + amount]), indices=[leg_index])
+
+# Sit
+controller.sit(2)
+```
