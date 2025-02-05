@@ -7,11 +7,11 @@ For a complete overview of the project refer to the [main Hexapod repository](ht
 
 Below, you will find instructions on how to build and deploy the code.
 
-## 🛠️ Build and deployment
+## 🛠️ Setup
 
 Before you start, make sure you completed the setup of the [Operator](https://github.com/ggldnl/Hexapod-Operator.git).
 
-### 📦 Install miniforge
+### Install miniforge
 
 Anaconda lets you easily manage python environments in the same system and has also a package manager called Conda that can be used to download and maintain dependencies.
 Unfortunately, this is not supported by Raspberry Pis. We can use Miniforge instead, which can provide the same core features. It can be installed by downloading an installer script from the [GitHub repository](https://github.com/conda-forge/miniforge) that will take care of everything. If you are using the Raspberry Pi 5 as I am, select the arm64 version, download the installer and execute it. For this to work you must also use a 64-bit OS. 
@@ -46,6 +46,6 @@ conda env create -f environment.yml
 conda activate hexapod
 ```
 
-### 🚀 Delpoy
+## 🚀 Delpoy
 
 TODO
