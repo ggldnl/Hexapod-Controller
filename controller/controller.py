@@ -3,6 +3,8 @@ import numpy as np
 from action import Action
 from state import State
 
+from hexapod import transformation_matrix, rotation_matrix
+
 
 class Controller:
 
@@ -75,12 +77,74 @@ class Controller:
         self.action_queue.append(action)
 
     def get_last_state_in_queue(self):
+        """
+        Get the last state in the queue.
+
+        Returns:
+            State: The state of the last action to be executed.
+        """
 
         # Get the last state of the last action of the queue
         last_state = self.hexapod.state
         if self.action_queue:
             last_state = self.action_queue[-1].states[-1]
         return last_state.copy()
+
+    def get_points_in_origin_frame(self, points, leg_indices, body_position=None, body_orientation=None):
+        """
+        Transforms points from leg frames to the origin frame.
+
+        Parameters:
+            points (np.ndarray): (N, 3) array of points expressed in leg frames.
+            leg_indices (int or list/np.ndarray):
+                - If an integer (0 to 5), all points belong to this leg.
+                - If a list/array, it specifies the leg index for each point.
+            body_position (np.ndarray): [x, y, z] position of the body in the origin frame. Default is [0, 0, 0].
+            body_orientation (np.ndarray): [roll, pitch, yaw] orientation of the body in the origin frame. Default is [0, 0, 0].
+
+        Returns:
+            np.ndarray: (N, 3) array of points in the origin frame.
+        """
+        points = np.asarray(points)
+        assert points.ndim == 2 and points.shape[1] == 3, "Points must be an Nx3 array."
+
+        # Handle body position and orientation
+        if body_position is None:
+            body_position = np.zeros(3)
+        if body_orientation is None:
+            body_orientation = np.zeros(3)
+
+        # Create body transformation matrix
+        body_frame = transformation_matrix(rotation_matrix(body_orientation), body_position)
+
+        # Apply transformations to move the position from the leg frame to the origin frame
+        # position_in_origin_frame = body_frame @ leg_frame @ np.array([*leg_position, 1])
+        # origin_frame_positions.append(position_in_origin_frame[:3])
+
+        # Handle single leg index case
+        if isinstance(leg_indices, (int, np.integer)):
+            if not 0 <= leg_indices <= 5:
+                raise ValueError("Leg index must be between 0 and 5")
+            leg_frame = self.hexapod.leg_frames[leg_indices]
+            # Transform all points using the same leg frame
+            homogeneous_points = np.hstack([points, np.ones((len(points), 1))])
+            transformed_points = body_frame @ leg_frame @ homogeneous_points
+            return transformed_points[:3]
+
+        # Handle multiple leg indices case
+        leg_indices = np.asarray(leg_indices)
+        assert leg_indices.shape == (len(points),), "Number of leg indices must match number of points"
+        assert all(0 <= idx < 6 for idx in leg_indices), "All leg indices must be between 0 and 5."
+
+        # Transform each point using its corresponding leg frame
+        transformed_points = []
+        for point, leg_idx in zip(points, leg_indices):
+            leg_frame = self.hexapod.leg_frames[leg_idx]
+            homogeneous_point = np.array([*point, 1])
+            transformed_point = body_frame @ leg_frame @ homogeneous_point
+            transformed_points.append(transformed_point[:3])
+
+        return np.array(transformed_points)
 
     # ---------------------------------- Actions --------------------------------- #
 
@@ -227,24 +291,35 @@ class Controller:
         """
 
         assert duration > 0, f"The duration cannot be < 0."
-        assert ((legs_positions.shape == (6, 3) and indices is None) or
-                (legs_positions.shape[0] <= 6 and indices is not None)), f"Invalid leg position: {legs_positions}."
 
         # Get the last state of the last action of the queue
-        current_state = self.get_last_state_in_queue()
+        last_state = self.get_last_state_in_queue()
+        updated_legs_positions = last_state.legs_positions.copy()
 
-        current_legs_positions = current_state.legs_positions
-        current_legs_positions[indices] = legs_positions
+        if legs_positions is not None:
+            legs_positions = np.array(legs_positions)
+            assert legs_positions.shape[1] == 3, "Each leg position must have 3 coordinates."
+            assert legs_positions.shape[0] <= 6, "There cannot be more than 6 leg positions."
 
-        current_state.joint_angles = self.hexapod.inverse_kinematics_origin_frame(
-            current_legs_positions,
-            current_state.body_position,
-            current_state.body_orientation
+            if indices is None:
+                indices = range(len(legs_positions))  # Auto-set indices if missing
+            else:
+                assert len(indices) == legs_positions.shape[0], "Indices length must match legs_positions count."
+                assert all(0 <= idx < 6 for idx in indices), "Indices must be in range 0-5."
+
+            # Update only specified legs
+            for i, idx in enumerate(indices):
+                updated_legs_positions[idx] = legs_positions[i]
+
+        last_state.joint_angles = self.hexapod.inverse_kinematics_origin_frame(
+            updated_legs_positions,
+            last_state.body_position,
+            last_state.body_orientation
         )
 
         reach_action = Action(
             states=[
-                current_state
+                last_state
             ],
             durations=[
                 duration
@@ -253,7 +328,13 @@ class Controller:
         )
         self.add_action(reach_action)
 
-    def set_configuration(self, duration, legs_positions=None, body_position=None, body_orientation=None):
+    def set_body_pose_and_legs_positions(self,
+                                         duration,
+                                         body_position=None,
+                                         body_orientation=None,
+                                         legs_positions=None,
+                                         indices=None
+        ):
         """
         Reach a target configuration (body pose + legs positions). The legs will move directly
         to the target position.
@@ -265,38 +346,48 @@ class Controller:
             body_orientation (np.ndarray): [roll, pitch, yaw] orientation of the body in the world frame.
                 Defaults to the value in the last state, if any.
             legs_positions (np.ndarray): End-effector positions origin frame.
-                Defaults to the value in the last state, if any.
+                If no indices are provided, the size of the array should be
+                (6, 3). If the indices array is provided the array can be smaller.
+            indices (list): Indices of the legs for which we are specifying the
+                target position.
         """
 
         assert duration > 0, f"The duration cannot be < 0."
-        if legs_positions is not None:
-            assert legs_positions.shape == (6, 3), f"Invalid body position: {body_position}."
-        if body_position is not None:
-            assert body_position.shape == (3,), f"Invalid body position: {body_position}."
-        if body_orientation is not None:
-            assert body_orientation.shape == (3,), f"Invalid body orientation: {body_position}."
 
         # Get the last state of the last action of the queue
-        current_state = self.get_last_state_in_queue()
+        last_state = self.get_last_state_in_queue()
+        updated_legs_positions = last_state.legs_positions.copy()
 
         if legs_positions is not None:
-            current_state.legs_positions = legs_positions
+            legs_positions = np.array(legs_positions)
+            assert legs_positions.shape[1] == 3, "Each leg position must have 3 coordinates."
+            assert legs_positions.shape[0] <= 6, "There cannot be more than 6 leg positions."
+
+            if indices is None:
+                indices = range(len(legs_positions))  # Auto-set indices if missing
+            else:
+                assert len(indices) == legs_positions.shape[0], "Indices length must match legs_positions count."
+                assert all(0 <= idx < 6 for idx in indices), "Indices must be in range 0-5."
+
+            # Update only specified legs
+            for i, idx in enumerate(indices):
+                updated_legs_positions[idx] = legs_positions[i]
 
         if body_position is not None:
-            current_state.body_position = body_position
+            last_state.body_position = body_position
 
         if body_orientation is not None:
-            current_state.body_orientation = body_orientation
+            last_state.body_orientation = body_orientation
 
-        current_state.joint_angles = self.hexapod.inverse_kinematics_origin_frame(
-            current_state.legs_positions,
-            current_state.body_position,
-            current_state.body_orientation
+        last_state.joint_angles = self.hexapod.inverse_kinematics_origin_frame(
+            last_state.legs_positions,
+            last_state.body_position,
+            last_state.body_orientation
         )
 
         reach_action = Action(
             states=[
-                current_state
+                last_state
             ],
             durations=[
                 duration
