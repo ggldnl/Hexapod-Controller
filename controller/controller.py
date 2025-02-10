@@ -106,7 +106,8 @@ class Controller:
             np.ndarray: (N, 3) array of points in the origin frame.
         """
         points = np.asarray(points)
-        assert points.ndim == 2 and points.shape[1] == 3, "Points must be an Nx3 array."
+        assert ((points.ndim == 2 and points.shape[1] == 3) or
+                (points.ndim == 1 and points.shape[0] == 3)), "Points must be an Nx3 array."
 
         # Handle body position and orientation
         if body_position is None:
@@ -116,10 +117,6 @@ class Controller:
 
         # Create body transformation matrix
         body_frame = transformation_matrix(rotation_matrix(body_orientation), body_position)
-
-        # Apply transformations to move the position from the leg frame to the origin frame
-        # position_in_origin_frame = body_frame @ leg_frame @ np.array([*leg_position, 1])
-        # origin_frame_positions.append(position_in_origin_frame[:3])
 
         # Handle single leg index case
         if isinstance(leg_indices, (int, np.integer)):
@@ -298,8 +295,8 @@ class Controller:
 
         if legs_positions is not None:
             legs_positions = np.array(legs_positions)
-            assert legs_positions.shape[1] == 3, "Each leg position must have 3 coordinates."
-            assert legs_positions.shape[0] <= 6, "There cannot be more than 6 leg positions."
+            assert ((legs_positions.ndim == 1 and legs_positions[0] == 3) or 
+                    (legs_positions.ndim == 2 and legs_positions[1] == 3)), "Invalid leg positions specifier."
 
             if indices is None:
                 indices = range(len(legs_positions))  # Auto-set indices if missing
@@ -360,8 +357,8 @@ class Controller:
 
         if legs_positions is not None:
             legs_positions = np.array(legs_positions)
-            assert legs_positions.shape[1] == 3, "Each leg position must have 3 coordinates."
-            assert legs_positions.shape[0] <= 6, "There cannot be more than 6 leg positions."
+            assert ((legs_positions.ndim == 1 and legs_positions[0] == 3) or 
+                    (legs_positions.ndim == 2 and legs_positions[1] == 3)), "Invalid leg positions specifier."
 
             if indices is None:
                 indices = range(len(legs_positions))  # Auto-set indices if missing
