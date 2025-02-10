@@ -90,13 +90,13 @@ class Controller:
             last_state = self.action_queue[-1].states[-1]
         return last_state.copy()
 
-    def get_points_in_origin_frame(self, points, leg_indices, body_position=None, body_orientation=None):
+    def get_points_in_origin_frame(self, points, indices, body_position=None, body_orientation=None):
         """
         Transforms points from leg frames to the origin frame.
 
         Parameters:
             points (np.ndarray): (N, 3) array of points expressed in leg frames.
-            leg_indices (int or list/np.ndarray):
+            indices (int or list/np.ndarray):
                 - If an integer (0 to 5), all points belong to this leg.
                 - If a list/array, it specifies the leg index for each point.
             body_position (np.ndarray): [x, y, z] position of the body in the origin frame. Default is [0, 0, 0].
@@ -119,23 +119,23 @@ class Controller:
         body_frame = transformation_matrix(rotation_matrix(body_orientation), body_position)
 
         # Handle single leg index case
-        if isinstance(leg_indices, (int, np.integer)):
-            if not 0 <= leg_indices <= 5:
+        if isinstance(indices, (int, np.integer)):
+            if not 0 <= indices <= 5:
                 raise ValueError("Leg index must be between 0 and 5")
-            leg_frame = self.hexapod.leg_frames[leg_indices]
+            leg_frame = self.hexapod.leg_frames[indices]
             # Transform all points using the same leg frame
             homogeneous_points = np.hstack([points, np.ones((len(points), 1))])
             transformed_points = body_frame @ leg_frame @ homogeneous_points
             return transformed_points[:3]
 
         # Handle multiple leg indices case
-        leg_indices = np.asarray(leg_indices)
-        assert leg_indices.shape == (len(points),), "Number of leg indices must match number of points"
-        assert all(0 <= idx < 6 for idx in leg_indices), "All leg indices must be between 0 and 5."
+        indices = np.asarray(indices)
+        assert indices.shape == (len(points),), "Number of leg indices must match number of points"
+        assert all(0 <= idx < 6 for idx in indices), "All leg indices must be between 0 and 5."
 
         # Transform each point using its corresponding leg frame
         transformed_points = []
-        for point, leg_idx in zip(points, leg_indices):
+        for point, leg_idx in zip(points, indices):
             leg_frame = self.hexapod.leg_frames[leg_idx]
             homogeneous_point = np.array([*point, 1])
             transformed_point = body_frame @ leg_frame @ homogeneous_point
@@ -271,7 +271,7 @@ class Controller:
         )
         self.add_action(reach_action)
 
-    def set_legs_positions(self, duration, legs_positions, indices=None):
+    def set_legs_positions(self, duration, legs_positions, indices=None, leg_frame=False):
         """
         Set the legs positions, specified in origin frame. You can either set the
         positions for all the legs, in which case the size of the legs_positions
@@ -285,6 +285,8 @@ class Controller:
                 (6, 3). If the indices array is provided the array can be smaller.
             indices (list): Indices of the legs for which we are specifying the
                 target position.
+            leg_frame (bool): True if the positions are specified in leg frame,
+                False otherwise.
         """
 
         assert duration > 0, f"The duration cannot be < 0."
@@ -303,9 +305,18 @@ class Controller:
                 assert len(indices) == legs_positions.shape[0], "Indices length must match legs_positions count."
                 assert all(0 <= idx < 6 for idx in indices), "Indices must be in range 0-5."
 
+            # Translate points into the respective frames if needed
+            if leg_frame:
+                legs_positions = self.get_points_in_origin_frame(
+                    legs_positions,
+                    indices=indices,
+                    body_position=last_state.body_position,
+                    body_orientation=last_state.body_orientation
+                )
+
             # Update only specified legs
             for i, idx in enumerate(indices):
-                updated_legs_positions[idx] = legs_positions[i]
+                    updated_legs_positions[idx] = legs_positions[i]
 
         last_state.joint_angles = self.hexapod.inverse_kinematics_origin_frame(
             updated_legs_positions,
