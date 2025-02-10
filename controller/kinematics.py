@@ -149,7 +149,7 @@ class LegModel:
             ValueError: If the required point is unreachable.
         """
 
-        # y is the forward direction
+        # x is the forward direction, y is sideways
         x, y, z = target
 
         c = self.coxa
