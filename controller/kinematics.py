@@ -148,7 +148,9 @@ class LegModel:
         Raises:
             ValueError: If the required point is unreachable.
         """
-        x, y, z = target
+
+        # y is the forward direction
+        y, x, z = target
 
         c = self.coxa
         f = self.femur
