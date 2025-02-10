@@ -294,9 +294,8 @@ class Controller:
         updated_legs_positions = last_state.legs_positions.copy()
 
         if legs_positions is not None:
-            legs_positions = np.array(legs_positions)
-            assert ((legs_positions.ndim == 1 and legs_positions[0] == 3) or 
-                    (legs_positions.ndim == 2 and legs_positions[1] == 3)), "Invalid leg positions specifier."
+            legs_positions = np.atleast_2d(legs_positions)
+            assert legs_positions.shape[1] == 3, "Invalid leg positions specifier."
 
             if indices is None:
                 indices = range(len(legs_positions))  # Auto-set indices if missing
@@ -356,9 +355,8 @@ class Controller:
         updated_legs_positions = last_state.legs_positions.copy()
 
         if legs_positions is not None:
-            legs_positions = np.array(legs_positions)
-            assert ((legs_positions.ndim == 1 and legs_positions[0] == 3) or 
-                    (legs_positions.ndim == 2 and legs_positions[1] == 3)), "Invalid leg positions specifier."
+            legs_positions = np.atleast_2d(legs_positions)
+            assert legs_positions.shape[1] == 3, "Invalid leg positions specifier."
 
             if indices is None:
                 indices = range(len(legs_positions))  # Auto-set indices if missing
