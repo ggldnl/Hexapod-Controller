@@ -163,7 +163,7 @@ class Controller:
         body_position_extend_phase = np.zeros(3)
         body_orientation_extend_phase = np.zeros(3)
         legs_positions_extend_phase = self.hexapod.translate_to_origin_frame(
-            np.array([[y_offset, 0, 0] for _ in range(6)])
+            np.array([[0, y_offset, 0] for _ in range(6)])
         )
         joint_values_extend_phase = self.hexapod.inverse_kinematics_origin_frame(
             legs_positions_extend_phase,
@@ -181,7 +181,7 @@ class Controller:
         body_position_lift_phase = np.array([0, 0, height])
         body_orientation_lift_phase = np.zeros(3)
         legs_positions_lift_phase = self.hexapod.translate_to_origin_frame(
-            np.array([[y_offset, 0, 0] for _ in range(6)])
+            np.array([[0, y_offset, 0] for _ in range(6)])
         )
         joint_values_lift_phase = self.hexapod.inverse_kinematics_origin_frame(
             legs_positions_lift_phase,
@@ -439,7 +439,7 @@ class Controller:
 
         # Retract phase
         retract_legs_positions = self.hexapod.translate_to_origin_frame(
-            np.array([[y_offset, 0, height] for _ in range(6)])
+            np.array([[0, y_offset, height] for _ in range(6)])
         )
         retract_joint_values = self.hexapod.inverse_kinematics_origin_frame(
             retract_legs_positions,
