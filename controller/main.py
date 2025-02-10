@@ -44,28 +44,50 @@ if __name__ == '__main__':
         # dt = 1. / 240.
         dt = args.dt
 
-        # Stand and then move the body
-        controller.stand(2)
+        # Stand and wait a little
+        controller.stand(5)
 
+        # Look around
         controller.set_body_pose(2, body_orientation=np.array([0, np.deg2rad(10), np.deg2rad(10)]))
         controller.set_body_pose(2, body_orientation=np.array([0, np.deg2rad(-10), np.deg2rad(-10)]))
         controller.set_body_pose(2, body_orientation=np.array([0, 0, 0]))
 
-        # Move a leg in space
-        current_leg_position = controller.get_last_state_in_queue().legs_positions[0]
-        x, y, z = current_leg_position
+        # Move a leg along its relative axis
+        leg_index = 0
+        offset = 50
+        x, y, z = 80, 0, 0  # Add an offset to the x to fall in the reachable workspace
 
-        controller.set_legs_positions(1, np.array([x + 50, y, z]), indices=[0])  # Move along x
-        controller.set_legs_positions(1, current_leg_position, indices=[0])  # Reset
+        # Move by a certain amount in the leg's x-axis
+        controller.set_legs_positions(2, np.array([[x, y, z]]), indices=[leg_index], leg_frame=True)
+        controller.set_legs_positions(2, np.array([[x + offset, y, z]]), indices=[leg_index], leg_frame=True)
+        controller.set_legs_positions(2, np.array([[x, y, z]]), indices=[leg_index], leg_frame=True)
 
-        controller.set_legs_positions(1, np.array([x, y + 50, z]), indices=[0])  # Move along y
-        controller.set_legs_positions(1, current_leg_position, indices=[0])  # Reset
+        # Move by a certain amount in the leg's y-axis
+        controller.set_legs_positions(2, np.array([[x, y, z]]), indices=[leg_index], leg_frame=True)
+        controller.set_legs_positions(2, np.array([[x, y + offset, z]]), indices=[leg_index], leg_frame=True)
+        controller.set_legs_positions(2, np.array([[x, y, z]]), indices=[leg_index], leg_frame=True)
 
-        controller.set_legs_positions(1, np.array([x, y, z + 50]), indices=[0])  # Move along z
-        controller.set_legs_positions(1, current_leg_position, indices=[0])  # Reset
+        # Move by a certain amount in the leg's z-axis by following a straight line
+        delta=10
+        x, y = 150, 0
+        for _ in range(3):
+            for i in range(-50, 50, delta):
+                controller.set_legs_positions(0.1, np.array([[x, y, i]]), indices=[leg_index], leg_frame=True)
+            for i in range(50, -50, -delta):
+                controller.set_legs_positions(0.1, np.array([[x, y, i]]), indices=[leg_index], leg_frame=True)
 
-        # Homing
-        controller.sit(2)
+        # Move the same leg on points expressed in the origin frame, drawing a square
+        x, y, z = 150, 150, 100
+        offset = 50
+
+        controller.set_legs_positions(2, np.array([[x, y, z]]), indices=[leg_index])
+        controller.set_legs_positions(2, np.array([[x + offset, y, z]]), indices=[leg_index])
+        controller.set_legs_positions(2, np.array([[x + offset, y + offset, z]]), indices=[leg_index])
+        controller.set_legs_positions(2, np.array([[x, y + offset, z]]), indices=[leg_index])
+        controller.set_legs_positions(2, np.array([[x, y, z]]), indices=[leg_index])  # Go back to the starting point
+
+        # Sit and terminate the test script
+        controller.sit(5)
 
         while True:
 
