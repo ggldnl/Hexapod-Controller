@@ -150,7 +150,7 @@ class LegModel:
         """
 
         # y is the forward direction
-        y, x, z = target
+        x, y, z = target
 
         c = self.coxa
         f = self.femur
