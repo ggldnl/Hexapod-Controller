@@ -398,7 +398,7 @@ class Controller:
             durations=[
                 duration
             ],
-            name='set_configuration'
+            name='set_body_pose_and_leg_positions'
         )
         self.add_action(reach_action)
 
