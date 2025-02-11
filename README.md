@@ -75,3 +75,7 @@ controller.set_legs_positions(1, np.array([x, y, z + amount]), indices=[leg_inde
 # Sit
 controller.sit(2)
 ```
+
+## 🤝 Contribution
+
+Feel free to contribute by opening issues or submitting pull requests. For further information, check out the [main Hexapod repository](https://github.com/ggldnl/Hexapod). Give a ⭐️ to this project if you liked the content.
