@@ -1,13 +1,18 @@
-from path_setup import *
-from controller.interface import Interface
+"""
+Calibration utility to find the actual min and max pulses of each servo.
+"""
+
+from controller.hardware.kernel import Kernel
 
 import argparse
 import time
 import csv
 from sshkeyboard import listen_keyboard
 
+# TODO work in progress
+
 # Parse command-line arguments
-parser = argparse.ArgumentParser(description="Servo controller test script.")
+parser = argparse.ArgumentParser(description="Servo calibration: find actual min and max pulses for each servo.")
 parser.add_argument("--small_pulse_step", type=int, default=5, help="Small step size for pulse adjustment.")
 parser.add_argument("--large_pulse_step", type=int, default=100, help="Large step size for pulse adjustment.")
 parser.add_argument("--min_pulse", type=int, default=500, help="Minimum pulse width (in microseconds).")

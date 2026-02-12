@@ -4,5 +4,6 @@ channels:
 dependencies:
   - pip
   - pyserial
+  - viser
   - pip:
     - sshkeyboard
