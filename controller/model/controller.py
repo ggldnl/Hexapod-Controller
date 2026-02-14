@@ -43,16 +43,16 @@ class HexapodController:
         self.logger.setLevel(logging.DEBUG)
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        console_handler.setLevel(logging.DEBUG)
+        self.logger.addHandler(console_handler)
+
         if logfile:
             file_handler = logging.FileHandler(logfile)
             file_handler.setFormatter(formatter)
             file_handler.setLevel(logging.INFO)
             self.logger.addHandler(file_handler)
-
-            console_handler = logging.StreamHandler()
-            console_handler.setFormatter(formatter)
-            console_handler.setLevel(logging.DEBUG)
-            self.logger.addHandler(console_handler)
 
         # Finally, enable the robot
         self.enabled = True
