@@ -1,6 +1,6 @@
 import struct
 
-from HDLC import HDLC
+from .HDLC import HDLC
 
 
 class Kernel:
