@@ -2,12 +2,9 @@
 
 # Geometric parameters
 kinematics:
-  
-  # Leg mounting positions relative to body center
-  # position: [x, y, z] in mm
-  # orientation: [x, y, z] in rad
 
   body:
+
     position: [0.0, 0.0, 0.0]
     orientation: [0.0, 0.0, 0.0]
 
@@ -20,6 +17,8 @@ kinematics:
     coxa: 62     # mm
     femur: 77    # mm
     tibia: 100   # mm
+
+    # Leg mounting position and orientation relative to body center
 
     front_right:
       position: [82.0, -57.0, 0.0]
@@ -77,6 +76,7 @@ hardware:
 
 # Gait parameters
 gaits:
+
   tripod:
     duty_factor: 0.5
     step_height: 30   # mm
