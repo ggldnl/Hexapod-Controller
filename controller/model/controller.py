@@ -38,10 +38,6 @@ class HexapodController:
         self.body_linear_velocity = config['safety'].get('body_lin_vel_max', 50.0)  # mm/s
         self.body_angular_velocity = config['safety'].get('body_ang_vel_max', 30.0) # deg/s
 
-        # Safety
-        self.enabled = True
-        self.enable()  # also enables the interface
-
         # Logging
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.setLevel(logging.DEBUG)
@@ -57,6 +53,10 @@ class HexapodController:
             console_handler.setFormatter(formatter)
             console_handler.setLevel(logging.DEBUG)
             self.logger.addHandler(console_handler)
+
+        # Finally, enable the robot
+        self.enabled = True
+        self.enable()  # also enables the interface
 
     def enable(self):
         """Enable interface."""
