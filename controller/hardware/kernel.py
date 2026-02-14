@@ -61,7 +61,7 @@ class Kernel:
 
     def get_led(self, pin: int) -> tuple[int, int, int]:
 
-        # TODO check this out
+        # TODO properly handle the return once you test this on the Raspberry
         """
         # Maybe this is what you need
         struct.unpack('<I', data[i:i+4])[0]

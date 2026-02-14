@@ -50,19 +50,23 @@ class HexapodController:
         if logfile:
             file_handler = logging.FileHandler(logfile)
             file_handler.setFormatter(formatter)
+            file_handler.setLevel(logging.INFO)
             self.logger.addHandler(file_handler)
 
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        self.logger.addHandler(console_handler)
+            console_handler = logging.StreamHandler()
+            console_handler.setFormatter(formatter)
+            console_handler.setLevel(logging.DEBUG)
+            self.logger.addHandler(console_handler)
 
     def enable(self):
         """Enable interface."""
+        self.logger.info("Enabling interface.")
         self.interface.enable()
         self.enabled = True
 
     def disable(self):
         """Disable interface."""
+        self.logger.info("Disabling interface.")
         self.interface.disable()
         self.enabled = False
 
@@ -183,6 +187,8 @@ class HexapodController:
         self.linear_velocity[0] = np.clip(vx, -max_linear, max_linear)
         self.linear_velocity[1] = np.clip(vy, -max_linear, max_linear)
         self.linear_velocity[2] = np.clip(vz, -max_linear, max_linear)
+        self.logger.info(f"Setting gait linear velocity to: "
+                         f"{self.linear_velocity[0]}, {self.linear_velocity[1]}, {self.linear_velocity[2]} mm/s")
 
     def set_angular_velocity(self, wz: float):
         """
@@ -193,6 +199,7 @@ class HexapodController:
         """
         max_angular = self.config['safety']['ang_vel_max']
         self.angular_velocity = np.clip(wz, -max_angular, max_angular)
+        self.logger.info(f"Setting gait angular velocity to: {self.angular_velocity} deg/s")
 
     def set_gait(self, gait_name: str):
         """Change gait pattern"""
@@ -209,23 +216,27 @@ class HexapodController:
         Initialize robot to standing position.
         Resets all body pose adjustments and stops motion.
         """
-        # TODO check this
+
+        # Stop motion
         self.linear_velocity = np.zeros(3)
         self.angular_velocity = 0
         self.body_position = np.zeros(3)
         self.body_orientation = np.zeros(3)
 
+        # Set body height to 2/3 of max height
+        min_z, max_z = self.config['safety']['z_range']
+        self.body_position[2] = (max_z + min_z) / 3 * 2
+        self.logger.info(f"Standing to h={self.body_position[2]} mm")
+
     def set_body_height(self, height: float):
         """
         Set body height (general action).
         Applied during gait without interruption.
-
-        Args:
-            height: Body height above ground in mm
         """
-        min_h, max_h = self.config['safety']['z_range']
-        height = np.clip(height, min_h, max_h)
+        min_z, max_z = self.config['safety']['z_range']
+        height = np.clip(height, min_z, max_z)
         self.target_body_position[2] = height
+        self.logger.info(f"Setting body height to h={self.target_body_position[2]} mm")
 
     def set_body_position(self, dx: float, dy: float, dz: float):
         """
@@ -251,6 +262,8 @@ class HexapodController:
         self.target_body_position[1] = clipped_dy
         self.target_body_position[2] = clipped_dz
 
+        self.logger.info(f"Setting body position to: {clipped_dx}, {clipped_dy}, {clipped_dz} mm")
+
     def set_body_orientation(self, roll: float, pitch: float, yaw: float):
         """
         Set body orientation (general action).
@@ -274,6 +287,8 @@ class HexapodController:
         self.target_body_orientation[0] = np.radians(clipped_roll)
         self.target_body_orientation[1] = np.radians(clipped_pitch)
         self.target_body_orientation[2] = np.radians(clipped_yaw)
+
+        self.logger.info(f"Setting body orientation to: {clipped_roll}, {clipped_pitch}, {clipped_yaw} deg")
 
     # Convenience methods
 

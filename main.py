@@ -1,12 +1,11 @@
 """
-Simple Gait Viewer
-
-Quick visualization of a single gait pattern.
+Control the real robot while streaming its state to a websocket.
 """
 
 import yaml
 import time
 import argparse
+from datetime import datetime
 
 from controller.hardware.kernel import Kernel
 from controller.model.interface import Interface
@@ -14,8 +13,6 @@ from controller.model.controller import HexapodController
 
 
 if __name__ == '__main__':
-
-    # TODO work in progress
 
     parser = argparse.ArgumentParser(description='Hexapod control')
     parser.add_argument('--gait', '-g', type=str, default='ripple',
@@ -38,6 +35,7 @@ if __name__ == '__main__':
     interface = Interface(kernel, config)               # Interface for servo mapping, limits, ...
 
     # Create controller
+    log_file = f'logs/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log'
     controller = HexapodController(interface, config)
     controller.set_gait(args.gait)
 
@@ -45,36 +43,24 @@ if __name__ == '__main__':
     dt = 1.0 / hz
     t = 0.0
 
-    # Examples
-    t0 = 5
-    t1 = 10
-    t2 = 15
-    t3 = 20
-
     while True:
+
+        # TODO read from joystick/keyboard
+        linear_velocity = (0, 0, 0)
+        angular_velocity = 0
+        body_position = (0, 0, 0)
+        body_orientation = (0, 0, 0)
+
+        controller.set_linear_velocity(*linear_velocity)
+        controller.set_angular_velocity(angular_velocity)
+        controller.set_body_position(*body_position)
+        controller.set_body_orientation(*body_orientation)
 
         # Controller computes and sets joint angles
         outcome = controller.update(dt)
 
-        # Example: at t0, gait linear velocity changes
-        if t0 and t >= t0:
-            t0 = None  # invalidate so that we won't change it again
-            controller.set_linear_velocity(args.vx * 10, args.vy, args.vz)
-
-        # Example: at t1, body position changes
-        if t1 and t >= t1:
-            t1 = None
-            controller.set_body_position(0, 0, 30)
-
-        # Example: at t2, body orientation changes but the gait generator still moves the robot forward in a straight line
-        if t2 and t >= t2:
-            t2 = None
-            controller.set_body_orientation(0, 0, 30)
-
-        # Example: at t3, gait orientation changes and the robot curves
-        if t3 and t >= t3:
-            t3 = None
-            controller.set_angular_velocity(0)
+        # TODO stream state through websocket
+        # state = controller.get_state()
 
         time.sleep(dt)
         t += dt

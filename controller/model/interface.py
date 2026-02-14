@@ -15,13 +15,10 @@ class Interface:
         self.config = config
 
         # Fix leg names order
-        # TODO check this out
-        self.leg_names = [key for key in self.config['kinematics']['legs']]
+        self.leg_names = [k for k, v in config['kinematics']['legs'].items() if isinstance(v, dict)]
 
         self.servos = {}
-        for leg_name in self.config['kinematics']['legs'].keys():
-            if leg_name in ['coxa', 'femur', 'tibia']:
-                continue
+        for leg_name in self.leg_names:
 
             self.servos[leg_name] = {}
             pins = self.config['hardware']['pins'][leg_name]
@@ -98,7 +95,7 @@ class Interface:
         all_pins = []
         all_angles = []
 
-        for leg_name in leg_angles.keys():
+        for leg_name in self.leg_names:
             for i, joint_name in enumerate(['coxa', 'femur', 'tibia']):
                 all_pins.append(self.servos[leg_name][joint_name]['pin'])
                 all_angles.append(self.convert_angle(leg_name, joint_name, leg_angles[leg_name][i]))
