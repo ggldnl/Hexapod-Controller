@@ -113,7 +113,7 @@ safety:
   # Expressed in joint space
   coxa_range: [-90, 90]
   femur_range: [-90, 90]
-  tibia_range: [0, 120]
+  tibia_range: [-90, 0]
 
   # Body position and orientation delta range
   x_range: [-50, 50]
