@@ -104,11 +104,11 @@ safety:
   voltage_min: 6.0    # V
   current_max: 15.0   # A
 
-  lin_vel_max: 100    # mm/s
-  ang_vel_max: 60     # deg/s
+  lin_vel_max: 80    # mm/s
+  ang_vel_max: 50    # deg/s
 
   body_lin_vel_max: 50  # mm/s
-  body_ang_vel_max: 30  # deg/s
+  body_ang_vel_max: 10  # deg/s
 
   # Expressed in joint space
   coxa_range: [-90, 90]
@@ -118,7 +118,7 @@ safety:
   # Body position and orientation delta range
   x_range: [-50, 50]
   y_range: [-50, 50]
-  z_range: [0, 50]
+  z_range: [0, 100]
 
   roll_range: [-10, 10]
   pitch_range: [-10, 10]
