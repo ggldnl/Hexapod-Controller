@@ -4,11 +4,10 @@ Handles servo mapping, calibration, and safety limits.
 """
 
 import numpy as np
-from typing import Dict, Tuple
 
 
 class Interface:
-    """Hardware abstraction layer for robot control"""
+    """Hardware abstraction layer for robot control."""
     
     def __init__(self, kernel, config: dict):
         self.kernel = kernel
@@ -17,23 +16,17 @@ class Interface:
         # Fix leg names order
         self.leg_names = [k for k, v in config['kinematics']['legs'].items() if isinstance(v, dict)]
 
-        self.servos = {}
-        for leg_name in self.leg_names:
+        # Hardware info
+        self.pin = {leg_name: config['hardware']['pins'][leg_name] for leg_name in self.leg_names}
+        self.trim = {leg_name: config['hardware']['trim'][leg_name] for leg_name in self.leg_names}
+        self.direction = {leg_name: config['hardware']['direction'][leg_name] for leg_name in self.leg_names}
 
-            self.servos[leg_name] = {}
-            pins = self.config['hardware']['pins'][leg_name]
-            trim = self.config['hardware']['trim'][leg_name]
-            direction = self.config['hardware']['direction'][leg_name]
-
-            for i, joint in enumerate(['coxa', 'femur', 'tibia']):
-                range_min, range_max = tuple(self.config['safety'][f'{joint}_range'])
-                self.servos[leg_name][joint] = {
-                    'pin': pins[i],
-                    'trim': trim[i],
-                    'direction': direction[i],
-                    'min': range_min,
-                    'max': range_max
-                }
+        # Limits
+        coxa_min, coxa_max = config['safety']['coxa_range']
+        femur_min, femur_max = config['safety']['femur_range']
+        tibia_min, tibia_max = config['safety']['tibia_range']
+        self.servo_min = {leg_name: [coxa_min, femur_min, tibia_min] for leg_name in self.leg_names}
+        self.servo_max = {leg_name: [coxa_max, femur_max, tibia_max] for leg_name in self.leg_names}
 
         # Safety limits
         self.voltage_min = self.config['safety']['voltage_min']
@@ -42,77 +35,75 @@ class Interface:
         self.enabled = True
 
     def enable(self):
-        """Enable all servos"""
-        self.kernel.attach_servos()
-        self.kernel.connect_power()
+        """Enable all servos."""
+        self.kernel.attach_servos()  # Enables the servos
+        self.kernel.connect_power()  # Physically connects the power trace to the servos
         self.enabled = True
     
     def disable(self):
-        """Disable all servos"""
+        """Disable all servos."""
         self.kernel.detach_servos()
         self.kernel.disconnect_power()
         self.enabled = False
     
-    def convert_angle(self, leg: str, joint: str, angle: float) -> float:
-        """Apply trim and direction to convert kinematic angle to servo angle"""
+    def convert_angle(self, leg: str, joint: int, angle: float) -> float:
+        """Convert angle from kinematic space to servo space using config specification."""
 
-        angle *= self.servos[leg][joint]['direction']
-        angle += self.servos[leg][joint]['trim']
-        servo_min = self.servos[leg][joint]['min']
-        servo_max = self.servos[leg][joint]['max']
-        angle = np.clip(angle, servo_min, servo_max)
-        
-        return angle
-    
-    def set_angle(self, leg: str, joint: str, value: float) -> bool:
-        """Set single joint angle (degrees)"""
+        angle *= self.direction[leg][joint]
+        angle += self.trim[leg][joint]
+        servo_min = self.servo_max[leg][joint]
+        servo_max = self.servo_min[leg][joint]
+        return np.clip(angle, servo_min, servo_max)
+
+    def set_joint(self, leg: str, joint: int, value: float) -> bool:
+        """Set single joint angle (degrees)."""
 
         # Map kinematic angle to servo angle
         new_angle = self.convert_angle(leg, joint, value)
-
-        pin = self.servos[leg][joint]['pin']
+        pin = self.pin[leg][joint]
         result = self.kernel.set_servo_angle(pin, new_angle)
 
         return result
 
-    def set_leg_angles(self, leg: str, coxa: float, femur: float, tibia: float) -> bool:
-        """Set joint angles (degrees) for single leg"""
+    def set_leg(self, leg: str, angles: list) -> bool:
+        """Set leg angles (degrees)."""
 
-        # Map kinematic angle to servo angle
-        joints = {'coxa': coxa, 'femur': femur, 'tibia': tibia}
-        for joint, angle in joints.items():
-            new_angle = self.convert_angle(leg, joint, angle)
-            joints[joint] = new_angle
+        # Map angles in kinematic space to servo space
+        new_angles = [self.convert_angle(leg, i, angles[i]) for i in range(len(angles))]
+        pins = [self.pin[leg][i] for i in range(len(angles))]
+        result = self.kernel.set_servo_angles((pin, angle) for pin, angle in zip(pins, new_angles))
 
-        # Bulk update angles
-        values = [(self.servos[leg][joint]['pin'], joints[joint]) for joint in ['coxa', 'femur', 'tibia']]
-        return self.kernel.set_servo_angles(values)
+        return result
 
-    def set_all_legs(self, leg_angles: Dict[str, Tuple[float, float, float]]) -> bool:
-        """Set angles (degrees) for all legs simultaneously"""
+    def set_all_legs(self, joint_values: dict) -> bool:
+        """Set angles (degrees) for all legs simultaneously."""
 
-        # Prepare bulk update
         all_pins = []
         all_angles = []
+        for leg in self.leg_names:
 
-        for leg_name in self.leg_names:
-            for i, joint_name in enumerate(['coxa', 'femur', 'tibia']):
-                all_pins.append(self.servos[leg_name][joint_name]['pin'])
-                all_angles.append(self.convert_angle(leg_name, joint_name, leg_angles[leg_name][i]))
+            # Map angles
+            angles = joint_values[leg]
+            new_angles = [self.convert_angle(leg, i, angles[i]) for i in range(len(angles))]
+            pins = [self.pin[leg][i] for i in range(len(angles))]
 
+            all_pins.extend(pins)
+            all_angles.extend(new_angles)
+
+        # Bulk update
         values = [(pin, angle) for pin, angle in zip(all_pins, all_angles)]
         return self.kernel.set_servo_angles(values)
     
     def get_voltage(self) -> float:
-        """Get battery voltage"""
+        """Get battery voltage."""
         return self.kernel.get_voltage()
     
     def get_current(self) -> float:
-        """Get total current draw"""
+        """Get total current draw."""
         return self.kernel.get_current()
 
     def check(self) -> bool:
-        """Check if robot is operating within safety limits"""
+        """Check if robot is operating within safety limits."""
 
         if self.get_voltage() < self.voltage_min:
             return False
@@ -123,5 +114,5 @@ class Interface:
         return True
 
     def set_led(self, pin: int, r: int, g: int, b: int):
-        """Set LED color"""
+        """Set LED to color."""
         self.kernel.set_led(pin, r, g, b)
