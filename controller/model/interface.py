@@ -51,8 +51,8 @@ class Interface:
 
         angle *= self.direction[leg][joint]
         angle += self.trim[leg][joint]
-        servo_min = self.servo_max[leg][joint]
-        servo_max = self.servo_min[leg][joint]
+        servo_min = self.servo_min[leg][joint]
+        servo_max = self.servo_max[leg][joint]
         return np.clip(angle, servo_min, servo_max)
 
     def set_joint(self, leg: str, joint: int, value: float) -> bool:
