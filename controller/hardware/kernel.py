@@ -3,8 +3,10 @@ import struct
 from .HDLC import HDLC
 
 
+# TODO document kernel
+
 class Kernel:
-    
+
     def __init__(self, port: str, baud: int):
         self.transport = HDLC(port, baud)
 
@@ -79,7 +81,7 @@ class Kernel:
 
         result = []
         for i in range(0, len(data), 3):
-            result.append(tuple(data[i:i+3]))
+            result.append(tuple(data[i:i + 3]))
         return result
 
     def attach_servos(self) -> bool:
@@ -127,7 +129,7 @@ class Kernel:
         data = self._request(0x0F, bytes(payload))
 
         return [
-            struct.unpack('<I', data[i:i+4])[0]
+            struct.unpack('<I', data[i:i + 4])[0]
             for i in range(0, len(data), 4)
         ]
 
@@ -142,7 +144,7 @@ class Kernel:
         data = self._request(0x11, bytes(payload))
 
         return [
-            struct.unpack('<f', data[i:i+4])[0]
+            struct.unpack('<f', data[i:i + 4])[0]
             for i in range(0, len(data), 4)
         ]
 

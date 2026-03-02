@@ -56,24 +56,30 @@ class LegKinematics:
         self.tibia = tibia
 
     def forward(self, coxa_angle, femur_angle, tibia_angle):
-        """Compute forward kinematics: from joint angles to end effector position (in leg frame)."""
-                
+        """
+        Compute forward kinematics: from joint angles to end effector position (in leg frame).
+        Accepts joint angles in radians.
+        """
+
         # Compute end effector position in femur-tibia plane
         r = self.femur * np.cos(femur_angle) + self.tibia * np.cos(femur_angle + tibia_angle)
         z = self.femur * np.sin(femur_angle) + self.tibia * np.sin(femur_angle + tibia_angle)
-        
+
         # Add coxa offset
         r += self.coxa
-        
+
         # Project to 3D
         x = r * np.cos(coxa_angle)
         y = r * np.sin(coxa_angle)
-        
+
         return np.array([x, y, z])
-    
+
     def inverse(self, x, y, z):
-        """Compute inverse kinematics: from end effector position (in leg frame) to joint angles."""
-        
+        """
+        Compute inverse kinematics: from end effector position (in leg frame) to joint angles.
+        Returns joint angles in radians.
+        """
+
         # Coxa angle
         alpha = np.arctan2(y, x)
         r = np.sqrt(x ** 2 + y ** 2) - self.coxa
@@ -90,8 +96,8 @@ class LegKinematics:
 
         beta = np.arctan2(z, r) + np.arccos(np.clip(cos_angle1, -1, 1))
 
-        return alpha, beta, gamma
-    
+        return np.array([alpha, beta, gamma])
+
 
 class HexapodKinematics:
     """Hexapod kinematics with support for body orientation and position."""
@@ -99,7 +105,7 @@ class HexapodKinematics:
     def __init__(self, config):
 
         self.config = config['kinematics']
-        
+
         # Create LegKinematics instances
         legs_config = self.config['legs']
         self.leg_kinematics = LegKinematics(
@@ -107,39 +113,44 @@ class HexapodKinematics:
             femur=legs_config['femur'],
             tibia=legs_config['tibia']
         )
-        
+
         # Store leg mount positions and orientations (relative to body center)
         self.leg_frames = {}
         self.leg_frames_inv = {}
         for leg_name, leg_config in legs_config.items():
             if leg_name in ['coxa', 'femur', 'tibia']: continue
             leg_position = np.array(leg_config['position'])
-            leg_orientation = np.radians(np.array(leg_config['orientation']))   # orientation in config is in degrees for simplicity
-            self.leg_frames[leg_name] = transformation_matrix(leg_orientation, leg_position)    # transformation from body frame to leg frame
-            self.leg_frames_inv[leg_name] = np.linalg.inv(self.leg_frames[leg_name])            # transformation from leg frame to body frame
+            leg_orientation = np.radians(
+                np.array(leg_config['orientation']))  # orientation in config is in degrees for simplicity
+            self.leg_frames[leg_name] = transformation_matrix(leg_orientation,
+                                                              leg_position)  # transformation from body frame to leg frame
+            self.leg_frames_inv[leg_name] = np.linalg.inv(
+                self.leg_frames[leg_name])  # transformation from leg frame to body frame
 
     def forward_leg(self, leg_name, coxa_angle, femur_angle, tibia_angle,
-                        body_position=None, body_orientation=None):
+                    body_position=None, body_orientation=None):
         """
         Compute forward kinematics for a single leg.
-        
+
         Args:
             leg_name: Name of the leg
-            coxa_angle, femur_angle, tibia_angle: Joint angles in radians
+            coxa_angle: Coxa angle in radians
+            femur_angle: Femur angle in radians
+            tibia_angle: Tibia angle in radians
             body_position: Optional [x, y, z] position of body center
             body_orientation: Optional [roll, pitch, yaw] orientation of body
-            
+
         Returns:
             End effector position in world frame as [x, y, z]
         """
         # Get position in leg frame
         leg_pos = self.leg_kinematics.forward(coxa_angle, femur_angle, tibia_angle)
-        
+
         # Transform to body frame
         leg_frame = self.leg_frames[leg_name]
         leg_pos_homogeneous = np.append(leg_pos, 1)
         body_pos_homogeneous = leg_frame @ leg_pos_homogeneous
-        
+
         # Apply body transformation if provided
         if body_position is not None or body_orientation is not None:
             body_pos = body_position if body_position is not None else np.zeros(3)
@@ -147,25 +158,25 @@ class HexapodKinematics:
             body_transform = transformation_matrix(body_ori, body_pos)
             world_pos_homogeneous = body_transform @ body_pos_homogeneous
             return world_pos_homogeneous[:3]
-        
+
         return body_pos_homogeneous[:3]
-    
-    def inverse_leg(self, leg_name, x, y, z, 
-                        body_position=None, body_orientation=None):
+
+    def inverse_leg(self, leg_name, x, y, z,
+                    body_position=None, body_orientation=None):
         """
         Compute inverse kinematics for a single leg.
-        
+
         Args:
             leg_name: Name of the leg
             x, y, z: Target position in world frame
             body_position: Optional [x, y, z] position of body center
             body_orientation: Optional [roll, pitch, yaw] orientation of body
-            
+
         Returns:
             Joint angles [coxa, femur, tibia] in radians, or None if unreachable
         """
         target_position = np.array([x, y, z])
-        
+
         # Transform target from world frame to body frame
         if body_position is not None or body_orientation is not None:
             body_pos = body_position if body_position is not None else np.zeros(3)
@@ -175,23 +186,23 @@ class HexapodKinematics:
             target_homogeneous = np.append(target_position, 1)
             target_body = body_transform_inv @ target_homogeneous
             target_position = target_body[:3]
-        
+
         # Transform from body frame to leg frame
         target_homogeneous = np.append(target_position, 1)
         target_leg = self.leg_frames_inv[leg_name] @ target_homogeneous
-        
+
         # Compute IK in leg frame
         return self.leg_kinematics.inverse(target_leg[0], target_leg[1], target_leg[2])
-    
+
     def forward(self, joint_angles, body_position=None, body_orientation=None):
         """
         Compute forward kinematics for all legs.
-        
+
         Args:
-            joint_angles: Dict mapping leg names to [coxa, femur, tibia] angles
+            joint_angles: Dict mapping leg names to [coxa, femur, tibia] angles (radians)
             body_position: Optional [x, y, z] position of body center
             body_orientation: Optional [roll, pitch, yaw] orientation of body
-            
+
         Returns:
             Dict mapping leg names to [x, y, z] positions
         """
@@ -202,18 +213,18 @@ class HexapodKinematics:
                 body_position, body_orientation
             )
         return positions
-    
+
     def inverse(self, target_positions, body_position=None, body_orientation=None):
         """
         Compute inverse kinematics for all legs.
-        
+
         Args:
             target_positions: Dict mapping leg names to [x, y, z] target positions
             body_position: Optional [x, y, z] position of body center
             body_orientation: Optional [roll, pitch, yaw] orientation of body
-            
+
         Returns:
-            Dict mapping leg names to [coxa, femur, tibia] angles, or None for unreachable targets
+            Dict mapping leg names to [coxa, femur, tibia] angles (radians), or None for unreachable targets
         """
         angles = {}
         for leg_name, position in target_positions.items():

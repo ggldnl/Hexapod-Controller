@@ -46,7 +46,7 @@ class Interface:
         self.kernel.disconnect_power()
         self.enabled = False
     
-    def convert_angle(self, leg: str, joint: int, angle: float) -> float:
+    def kinematic_space_to_servo_space(self, leg: str, joint: int, angle: float) -> float:
         """Convert angle from kinematic space to servo space using config specification."""
 
         angle *= self.direction[leg][joint]
@@ -55,11 +55,18 @@ class Interface:
         servo_max = self.servo_max[leg][joint]
         return np.clip(angle, servo_min, servo_max)
 
+    def servo_space_to_kinematic_space(self, leg: str, joint: int, angle: float) -> float:
+        """Convert angle from servo space back to kinematic space."""
+
+        angle -= self.trim[leg][joint]
+        angle /= self.direction[leg][joint]
+        return angle
+
     def set_joint(self, leg: str, joint: int, value: float) -> bool:
         """Set single joint angle (degrees)."""
 
         # Map kinematic angle to servo angle
-        new_angle = self.convert_angle(leg, joint, value)
+        new_angle = self.kinematic_space_to_servo_space(leg, joint, value)
         pin = self.pin[leg][joint]
         result = self.kernel.set_servo_angle(pin, new_angle)
 
@@ -69,7 +76,7 @@ class Interface:
         """Set leg angles (degrees)."""
 
         # Map angles in kinematic space to servo space
-        new_angles = [self.convert_angle(leg, i, angles[i]) for i in range(len(angles))]
+        new_angles = [self.kinematic_space_to_servo_space(leg, i, angles[i]) for i in range(len(angles))]
         pins = [self.pin[leg][i] for i in range(len(angles))]
         result = self.kernel.set_servo_angles((pin, angle) for pin, angle in zip(pins, new_angles))
 
@@ -84,7 +91,7 @@ class Interface:
 
             # Map angles
             angles = joint_values[leg]
-            new_angles = [self.convert_angle(leg, i, angles[i]) for i in range(len(angles))]
+            new_angles = [self.kinematic_space_to_servo_space(leg, i, angles[i]) for i in range(len(angles))]
             pins = [self.pin[leg][i] for i in range(len(angles))]
 
             all_pins.extend(pins)
@@ -93,7 +100,23 @@ class Interface:
         # Bulk update
         values = [(pin, angle) for pin, angle in zip(all_pins, all_angles)]
         return self.kernel.set_servo_angles(values)
-    
+
+    def get_joint(self, leg: str, joint: int) -> float:
+        """Get the current angle of a joint (joint space)."""
+        pin = self.pin[leg][joint]
+        return self.kernel.get_servo_angle(pin)
+
+    def get_leg(self, leg: str) -> tuple:
+        """Get the current angles of a leg (joint space)."""
+        pins = [self.pin[leg][joint] for joint in range(3)]
+        return self.kernel.get_servo_angles(pins)
+
+    def get_all_legs(self) -> dict:
+        """Get the current angles for all legs (joint space)."""
+        return {
+            leg_name: self.get_leg(leg_name) for leg_name in self.leg_names
+        }
+
     def get_voltage(self) -> float:
         """Get battery voltage."""
         return self.kernel.get_voltage()
