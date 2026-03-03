@@ -11,6 +11,7 @@ kinematics:
     # length: 165  # mm
     # width: 114   # mm
     # height: 14   # mm
+    ground_to_center_z: 35.6  # 26.60 + 2 + 14/2 mm 
 
   legs:
 
