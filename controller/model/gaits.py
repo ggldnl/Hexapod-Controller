@@ -168,8 +168,11 @@ class GaitGenerator:
         """
 
         groups = self.GAIT_GROUPS[self.current_gait]
-        leg_group_idx = next(idx for idx, group in enumerate(groups) if leg_name in group)
-        phase_offset = leg_group_idx / len(groups)
+        num_groups = len(groups)
+        leg_group_idx = next(
+            idx for idx, group in enumerate(groups) if leg_name in group
+        )
+        phase_offset = leg_group_idx * (1.0 - self.overlap) / num_groups
         return (0.0 - phase_offset) % 1.0
 
     def is_leg_in_stance(self, leg_name: str, global_phase: float) -> bool:
@@ -379,7 +382,7 @@ class GaitGenerator:
 
         # Calculate stride vector based on velocity and cycle time
         velocity_norm = np.linalg.norm(velocity[:2])
-        stride_length = velocity_norm * self.cycle_time
+        stride_length = velocity_norm * self.cycle_time * self.duty_factor
         stride_direction = velocity[:2] / velocity_norm if stride_length > 1e-3 else np.array([0.0, 0.0])
 
         # Per-leg stride vector with linear and rotational components
