@@ -3,8 +3,6 @@ import struct
 from .HDLC import HDLC
 
 
-# TODO document kernel
-
 class Kernel:
 
     def __init__(self, port: str, baud: int):
@@ -62,16 +60,8 @@ class Kernel:
         return data[0] == 0x01
 
     def get_led(self, pin: int) -> tuple[int, int, int]:
-
-        # TODO properly handle the return once you test this on the Raspberry
-        """
-        # Maybe this is what you need
-        struct.unpack('<I', data[i:i+4])[0]
-            for i in range(0, len(data), 4)
-        """
-
         data = self._request(0x06, struct.pack('B', pin))
-        return tuple(data)
+        return data[1], data[0], data[2]  # the pico library (and most led strips) uses GRB
 
     def get_leds(self, pins: list[int]) -> list[tuple[int, int, int]]:
         payload = bytearray()
