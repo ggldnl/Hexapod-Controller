@@ -11,6 +11,7 @@ kinematics:
     # length: 165  # mm
     # width: 114   # mm
     # height: 14   # mm
+    ground_to_center_z: 35.6  # 26.60 + 2 + 14/2 mm
 
   legs:
 
@@ -46,7 +47,7 @@ kinematics:
 
 # Hardware parameters
 hardware:
-  
+
   # Servo pin assignments: [coxa, femur, tibia]
   pins:
     front_right:  [0, 1, 2]
@@ -81,18 +82,18 @@ gaits:
 
   tripod:
     duty_factor: 0.5
-    step_height: 30   # mm
+    step_height: 20   # mm
     overlap: 0.0
 
   wave:
-    duty_factor: 0.83  # a slow, cautious gait can have higher duty factor
-    step_height: 35   # mm
+    duty_factor: 0.8333  # a slow, cautious gait can have higher duty factor
+    step_height: 25   # mm
     overlap: 0.0
 
   ripple:
     duty_factor: 0.67
-    step_height: 30   # mm
-    overlap: 0.1
+    step_height: 20   # mm
+    overlap: 0.0
 
 # Control parameters
 control:
