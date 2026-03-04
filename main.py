@@ -18,6 +18,14 @@ if __name__ == '__main__':
     parser.add_argument('--gait', '-g', type=str, default='ripple',
                         choices=['tripod', 'wave', 'ripple'],
                         help='Initial gait pattern. Default is ripple.')
+    parser.add_argument('--vx', '-x', type=float, default=50.0,
+                        help='Forward velocity (mm/s)')
+    parser.add_argument('--vy', '-y', type=float, default=0.0,
+                        help='Strafe velocity (mm/s)')
+    parser.add_argument('--vz', '-z', type=float, default=0.0,
+                        help='Upward velocity (mm/s)')
+    parser.add_argument('--controller-rate', '-c', type=float, default=10,
+                        help="Controller update rate in Hz. Default is 20 Hz")
     parser.add_argument('--port', '-p', type=str, default='/dev/ttyAMA0',
                         help='Serial port for Servo2040 communication. Default is /dev/ttyAMA0.')
     parser.add_argument('--baud', '-b', type=int, default='115200',
@@ -39,28 +47,42 @@ if __name__ == '__main__':
     controller = HexapodController(interface, config)
     controller.set_gait(args.gait)
 
-    hz = config['control']['update_rate']
-    dt = 1.0 / hz
-    t = 0.0
+    try:
 
-    while True:
+        controller_dt = 1. / args.controller_rate
+        controller_time_accumulator = 0.0
+        t = 0.0
 
-        # TODO read from joystick/keyboard
-        linear_velocity = (0, 0, 0)
-        angular_velocity = 0
-        body_position = (0, 0, 0)
-        body_orientation = (0, 0, 0)
+        t0 = 8.0    # start moving
 
-        controller.set_linear_velocity(*linear_velocity)
-        controller.set_angular_velocity(angular_velocity)
-        controller.set_body_position(*body_position)
-        controller.set_body_orientation(*body_orientation)
+        while True:
 
-        # Controller computes and sets joint angles
-        outcome = controller.update(dt)
+            frame_start = time.perf_counter()
 
-        # TODO stream state through websocket
-        # state = controller.get_state()
+            # Accumulate time
+            controller_time_accumulator += controller_dt
 
-        time.sleep(dt)
-        t += dt
+            if t0 and t >= t0:
+                t0 = None  # invalidate so that we won't change it again
+                controller.set_linear_velocity(args.vx, args.vy, args.vz)
+
+            # Only update controller when enough time has passed
+            if controller_time_accumulator >= controller_dt:
+                outcome = controller.update(controller_dt)
+                controller_time_accumulator -= controller_dt  # Keep remainder for accuracy
+
+                # TODO stream state through websocket
+                # state = controller.get_state()
+
+            t += controller_dt
+
+            # Sleep only what's left of the frame budget
+            elapsed = time.perf_counter() - frame_start
+            remaining = controller_dt - elapsed
+            if remaining > 0:
+                time.sleep(remaining)
+
+    except KeyboardInterrupt:
+
+        controller.set_linear_velocity(0, 0, 0)
+        controller.set_angular_velocity(0)
