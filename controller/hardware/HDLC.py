@@ -49,8 +49,7 @@ class HDLC:
     def read_frame(self, timeout: float = 0.1) -> Optional[Tuple[int, bytes]]:
         deadline = time.monotonic() + timeout
 
-        # wait for SOF
-        # TODO this is blocking, maybe will cause problems on real hardware
+        # SOF never arrived — Pico didn't respond at all, or wrong baud rate
         while time.monotonic() < deadline:
             b = self.ser.read(1)
             if not b:
@@ -58,30 +57,36 @@ class HDLC:
             if b[0] == SOF:
                 break
         else:
-            return None
+            raise TimeoutError("Timed out waiting for SOF")
 
-        length_b = self.ser.read(1)
-        if len(length_b) != 1:
-            return None
+        def read_until_deadline(n: int) -> bytes:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(f"Deadline expired before reading {n} byte(s)")
+            self.ser.timeout = remaining
+            data = self.ser.read(n)
+            if len(data) != n:
+                raise TimeoutError(f"Expected {n} byte(s), got {len(data)} — frame truncated")
+            return data
+
+        # Frame arrived but subsequent bytes didn't — likely a crash mid-response
+        length_b = read_until_deadline(1)
         length = length_b[0]
 
-        payload = self.ser.read(length)
-        if len(payload) != length:
-            return None
+        payload = read_until_deadline(length)
+        crc_bytes = read_until_deadline(2)
+        eof_byte = read_until_deadline(1)
 
-        crc_bytes = self.ser.read(2)
-        if len(crc_bytes) != 2:
-            return None
-
-        eof = self.ser.read(1)
-        if eof != bytes([EOF]):
-            return None
+        # EOF marker wrong — framing error, possible serial corruption or baud mismatch
+        if eof_byte[0] != EOF:
+            raise RuntimeError(f"Bad EOF marker: got {eof_byte[0]:#04x}, expected {EOF:#04x}")
 
         rx_crc = crc_bytes[0] | (crc_bytes[1] << 8)
         calc_crc = self.crc16(bytes([length]) + payload)
 
+        # CRC wrong — data arrived but was corrupted in transit
         if rx_crc != calc_crc:
-            return None
+            raise RuntimeError(f"CRC mismatch: got {rx_crc:#06x}, expected {calc_crc:#06x}")
 
         opcode = payload[0]
         data = payload[1:]

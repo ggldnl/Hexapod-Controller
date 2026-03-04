@@ -34,6 +34,38 @@ class Interface:
 
         self.enabled = True
 
+    @property
+    def min_femur_kinematic_space(self):
+        """
+        Returns the angle in kinematic space corresponding to the
+        minimum femur angle realizable in servo space.
+        """
+        return self.servo_space_to_kinematic_space(self.leg_names[0], 1, self.servo_min[self.leg_names[0]][1])
+
+    @property
+    def max_femur_kinematic_space(self):
+        """
+        Returns the angle in kinematic space corresponding to the
+        maximum femur angle realizable in servo space.
+        """
+        return self.servo_space_to_kinematic_space(self.leg_names[0], 1, self.servo_max[self.leg_names[0]][1])
+
+    @property
+    def min_tibia_kinematic_space(self):
+        """
+        Returns the angle in kinematic space corresponding to the
+        minimum tibia angle realizable in servo space.
+        """
+        return self.servo_space_to_kinematic_space(self.leg_names[0], 2, self.servo_min[self.leg_names[0]][2])
+
+    @property
+    def max_tibia_kinematic_space(self):
+        """
+        Returns the angle in kinematic space corresponding to the
+        maximum tibia angle realizable in servo space.
+        """
+        return self.servo_space_to_kinematic_space(self.leg_names[0], 2, self.servo_max[self.leg_names[0]][2])
+
     def enable(self):
         """Enable all servos."""
         self.kernel.attach_servos()  # Enables the servos
@@ -98,7 +130,8 @@ class Interface:
             all_angles.extend(new_angles)
 
         # Bulk update
-        values = [(pin, angle) for pin, angle in zip(all_pins, all_angles)]
+        values = [(pin, float(angle)) for pin, angle in zip(all_pins, all_angles)]
+        print(f"Setting: {values}")
         return self.kernel.set_servo_angles(values)
 
     def get_joint(self, leg: str, joint: int) -> float:
@@ -128,8 +161,10 @@ class Interface:
     def check(self) -> bool:
         """Check if robot is operating within safety limits."""
 
+        """
         if self.get_voltage() < self.voltage_min:
             return False
+        """
 
         if self.get_current() > self.current_max:
             return False

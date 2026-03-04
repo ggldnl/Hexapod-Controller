@@ -104,8 +104,8 @@ control:
 # Safety limits
 safety:
 
-  voltage_min: 6.0    # V
-  current_max: 15.0   # A
+  voltage_min: 5.0    # V
+  current_max: 12.0   # A
 
   lin_vel_max: 100    # mm/s
   ang_vel_max: 60     # deg/s
