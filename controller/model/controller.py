@@ -55,6 +55,23 @@ class State(Enum):
     SHUTDOWN_DONE = 9
 
 
+class LED:
+    """
+    Status LED automatically toggles on and off at a given frequency.
+    """
+
+    def __init__(self, interval: float):
+        self._interval = interval
+        self._accumulator = 0.0
+        self._state = False
+
+    def update(self, dt: float):
+        self._accumulator += dt
+        if self._accumulator >= self._interval:
+            self._accumulator -= self._interval
+            self._state = not self._state
+
+
 class HexapodController:
     """
     Main hexapod controller.
@@ -121,6 +138,9 @@ class HexapodController:
             file_handler.setFormatter(formatter)
             file_handler.setLevel(logging.INFO)
             self.logger.addHandler(file_handler)
+
+        # Status LED
+        self._led = LED(interval=0.5)
 
         # Finally, enable the robot
         self.enabled = True
@@ -203,6 +223,9 @@ class HexapodController:
         Args:
             dt: Time step in seconds
         """
+
+        # TODO make status led change color based on state
+        self._led.update(dt)
 
         if not self.enabled:
             return False
@@ -301,7 +324,7 @@ class HexapodController:
 
         # If all legs are at phase end, we can interpolate to neutral stance phase
         if all(
-            np.linalg.norm(self.leg_positions[n] - self.gait.neutral_stance_positions[n]) < 1e-3
+            np.linalg.norm(self.leg_positions[n] - self.gait.neutral_stance_positions[n]) < tolerance
             for n in self.leg_names
         ):
 
@@ -567,7 +590,7 @@ class HexapodController:
         vel_norm = np.linalg.norm(new_linear_velocity)
         vel_change = False
 
-        # If the robot was IDLE and no velcity is given, stay IDLE
+        # If the robot was IDLE and no velocity is given, stay IDLE
         if self.state is State.IDLE and vel_norm < 1e-3:
             pass
 
