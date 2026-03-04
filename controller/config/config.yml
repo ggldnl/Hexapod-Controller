@@ -47,7 +47,7 @@ kinematics:
 
 # Hardware parameters
 hardware:
-
+  
   # Servo pin assignments: [coxa, femur, tibia]
   pins:
     front_right:  [0, 1, 2]
