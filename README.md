@@ -2,13 +2,13 @@
 
 This repository  contains the code for a python controller for my Hexapod robot.
 
-For a complete overview of the project refer to the [main Hexapod repository](https://github.com/ggldnl/Hexapod.git). Take also a look to the [Firmware repository](https://github.com/ggldnl/Hexapod-Operator.git). 
+For a complete overview of the project refer to the [main Hexapod repository](https://github.com/ggldnl/Hexapod.git). Take also a look to the [Firmware repository](https://github.com/ggldnl/Hexapod-Firmware.git). 
 
 Below, you will find instructions on how to build and deploy the code.
 
 ## 🛠️ Setup
 
-Before you start, make sure you completed the [setup of the Servo2040](https://github.com/ggldnl/Hexapod-Operator.git).
+Before you start, make sure you completed the [setup of the Servo2040](https://github.com/ggldnl/Hexapod-Firmware.git).
 
 ### Install miniforge
 
