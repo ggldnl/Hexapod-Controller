@@ -24,7 +24,7 @@ if __name__ == '__main__':
                         help='Strafe velocity (mm/s)')
     parser.add_argument('--vz', '-z', type=float, default=0.0,
                         help='Upward velocity (mm/s)')
-    parser.add_argument('--controller-rate', '-c', type=float, default=10,
+    parser.add_argument('--controller-rate', '-c', type=float, default=20,
                         help="Controller update rate in Hz. Default is 20 Hz")
     parser.add_argument('--port', '-p', type=str, default='/dev/ttyAMA0',
                         help='Serial port for Servo2040 communication. Default is /dev/ttyAMA0.')
@@ -53,14 +53,16 @@ if __name__ == '__main__':
         controller_time_accumulator = 0.0
         t = 0.0
 
-        t0 = 8.0    # start moving
+        t0 = 10.0    # start moving
 
+        last_frame = time.perf_counter()
         while True:
 
-            frame_start = time.perf_counter()
-
-            # Accumulate time
-            controller_time_accumulator += controller_dt
+            now = time.perf_counter()
+            dt = now - last_frame
+            last_frame = now
+            
+            controller_time_accumulator += dt
 
             if t0 and t >= t0:
                 t0 = None  # invalidate so that we won't change it again
@@ -77,7 +79,7 @@ if __name__ == '__main__':
             t += controller_dt
 
             # Sleep only what's left of the frame budget
-            elapsed = time.perf_counter() - frame_start
+            elapsed = time.perf_counter() - now
             remaining = controller_dt - elapsed
             if remaining > 0:
                 time.sleep(remaining)
