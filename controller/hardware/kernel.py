@@ -14,7 +14,14 @@ class Kernel:
     def _request(self, opcode: int, payload: bytes = b'', timeout: float = 0.1) -> bytes:
         self.transport.send_frame(opcode, payload)
 
-        frame = self.transport.read_frame(timeout)
+        # Flush the input buffer on any communication error.
+        # This ensures one corrupted frame does not disrupt communication
+        try:
+            frame = self.transport.read_frame(timeout)
+        except (TimeoutError, RuntimeError):
+            self.transport.ser.reset_input_buffer()
+            raise
+
         if frame is None:
             raise TimeoutError("No response")
 

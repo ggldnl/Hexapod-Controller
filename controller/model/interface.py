@@ -131,7 +131,7 @@ class Interface:
 
         # Bulk update
         values = [(pin, float(angle)) for pin, angle in zip(all_pins, all_angles)]
-        print(f"Setting: {values}")
+        # print(f"Setting: {values}")
         return self.kernel.set_servo_angles(values)
 
     def get_joint(self, leg: str, joint: int) -> float:
