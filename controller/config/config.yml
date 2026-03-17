@@ -82,17 +82,17 @@ gaits:
 
   tripod:
     duty_factor: 0.5
-    step_height: 20   # mm
+    step_height: 40   # mm
     overlap: 0.0
 
   wave:
     duty_factor: 0.8333  # a slow, cautious gait can have higher duty factor
-    step_height: 25   # mm
+    step_height: 40   # mm
     overlap: 0.0
 
   ripple:
     duty_factor: 0.67
-    step_height: 20   # mm
+    step_height: 40   # mm
     overlap: 0.0
 
 # Control parameters
@@ -107,7 +107,7 @@ safety:
   voltage_min: 5.0    # V
   current_max: 12.0   # A
 
-  lin_vel_max: 100    # mm/s
+  lin_vel_max: 250    # mm/s
   ang_vel_max: 60     # deg/s
 
   body_lin_vel_max: 50  # mm/s
