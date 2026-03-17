@@ -77,7 +77,7 @@ class HexapodController:
     Main hexapod controller.
     """
 
-    def __init__(self, interface, config: dict, logfile=None):
+    def __init__(self, interface, config: dict, verbose:bool = False, logfile:str=None):
 
         self.interface = interface
         self.config = config
@@ -124,20 +124,22 @@ class HexapodController:
         self.state = State.SETUP_CURL
 
         # Logging
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger.setLevel(logging.DEBUG)
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        self.logger = None
+        if verbose:
+            self.logger = logging.getLogger(self.__class__.__name__)
+            self.logger.setLevel(logging.DEBUG)
+            formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        console_handler.setLevel(logging.DEBUG)
-        self.logger.addHandler(console_handler)
+            console_handler = logging.StreamHandler()
+            console_handler.setFormatter(formatter)
+            console_handler.setLevel(logging.DEBUG)
+            self.logger.addHandler(console_handler)
 
-        if logfile:
-            file_handler = logging.FileHandler(logfile)
-            file_handler.setFormatter(formatter)
-            file_handler.setLevel(logging.INFO)
-            self.logger.addHandler(file_handler)
+            if logfile:
+                file_handler = logging.FileHandler(logfile)
+                file_handler.setFormatter(formatter)
+                file_handler.setLevel(logging.INFO)
+                self.logger.addHandler(file_handler)
 
         # Status LED
         self._led = LED(interval=0.5)
@@ -149,7 +151,7 @@ class HexapodController:
     def enable(self):
         """Enable interface."""
 
-        self.logger.info("Enabling interface.")
+        if self.logger: self.logger.info("Enabling interface.")
         self.interface.enable()
 
         # Get current joint angles (degrees)
@@ -168,7 +170,7 @@ class HexapodController:
     def disable(self):
         """Disable interface."""
 
-        self.logger.info("Disabling interface.")
+        if self.logger: self.logger.info("Disabling interface.")
         self.interface.disable()
         self.enabled = False
 
@@ -192,7 +194,7 @@ class HexapodController:
             k: np.degrees(v) if v is not None else None
             for k, v in joint_values.items()
         }
-        self.logger.debug(
+        if self.logger: self.logger.debug(
             "Target joint values  : " + ', '.join([
                 (
                     f'({joint_values[leg][0]:4.2f}, '
@@ -205,7 +207,7 @@ class HexapodController:
 
         # Apply the angles if possible
         if any(v is None for v in joint_values.values()):
-            self.logger.warning(
+            if self.logger: self.logger.warning(
                 f"Legs {[1 if joint_values[l] is None else 0 for l in self.leg_names]} "
                 "could not reach target."
             )
@@ -232,7 +234,7 @@ class HexapodController:
 
         # Safety check
         if not self.interface.check():
-            self.logger.warning(
+            if self.logger: self.logger.warning(
                 f"Emergency stop: voltage={self.interface.get_voltage()}, "
                 f"current={self.interface.get_current()}"
             )
@@ -351,7 +353,7 @@ class HexapodController:
         self._interpolate_joints(dt, curled_joints)
         self.interface.set_all_legs(self.current_joints)
 
-        self.logger.debug(
+        if self.logger: self.logger.debug(
             "Target joint values  : " + ', '.join([
                 (
                     f'({self.current_joints[leg][0]:4.2f}, '
@@ -428,7 +430,7 @@ class HexapodController:
         self._interpolate_joints(dt, curled_joints)
         self.interface.set_all_legs(self.current_joints)
 
-        self.logger.debug(
+        if self.logger: self.logger.debug(
             "Target joint values  " + ', '.join([
                 (
                     f'({self.current_joints[leg][0]:4.2f}, '
@@ -536,10 +538,10 @@ class HexapodController:
         """
 
         if self.state != State.IDLE:
-            self.logger.warning(f"transition_to_walking() ignored - current state is {self.state.name}")
+            if self.logger: self.logger.warning(f"transition_to_walking() ignored - current state is {self.state.name}")
             return
 
-        self.logger.info("Transitioning from IDLE to WALKING state")
+        if self.logger: self.logger.info("Transitioning from IDLE to WALKING state")
 
         # Set legs to neutral stance
         # TODO set the target leg positions to the respective position at phase start
@@ -555,10 +557,10 @@ class HexapodController:
         """
 
         if self.state != State.WALKING:
-            self.logger.warning(f"transition_to_idle() ignored - current state is {self.state.name}")
+            if self.logger: self.logger.warning(f"transition_to_idle() ignored - current state is {self.state.name}")
             return
 
-        self.logger.info("Transitioning from WALKING to IDLE state")
+        if self.logger: self.logger.info("Transitioning from WALKING to IDLE state")
 
         self.gait.stop()
 
@@ -578,7 +580,7 @@ class HexapodController:
         """
 
         if self.is_transition_ongoing():
-            self.logger.warning(f"set_linear_velocity() ignored - current state is {self.state.name}")
+            if self.logger: self.logger.warning(f"set_linear_velocity() ignored - current state is {self.state.name}")
             return
 
         max_linear = self.config['safety']['lin_vel_max']
@@ -616,7 +618,7 @@ class HexapodController:
                 vel_change = True
 
         if vel_change:
-            self.logger.info(f"Setting gait linear velocity to: "
+            if self.logger: self.logger.info(f"Setting gait linear velocity to: "
                              f"{new_linear_velocity[0]}, {new_linear_velocity[1]}, {new_linear_velocity[2]} mm/s")
 
     def set_angular_velocity(self, wz: float):
@@ -628,7 +630,7 @@ class HexapodController:
         """
 
         if self.is_transition_ongoing():
-            self.logger.warning(f"set_angular_velocity() ignored - current state is {self.state.name}")
+            if self.logger: self.logger.warning(f"set_angular_velocity() ignored - current state is {self.state.name}")
             return
 
         max_angular = self.config['safety']['ang_vel_max']
@@ -636,7 +638,7 @@ class HexapodController:
         vel_norm = abs(new_ang_vel)
         vel_change = False
 
-        # If the robot was IDLE and no velcity is given, stay IDLE
+        # If the robot was IDLE and no velocity is given, stay IDLE
         if self.state is State.IDLE and vel_norm < 1e-3:  # if IDLE, lin vel was already 0
             pass
 
@@ -662,7 +664,7 @@ class HexapodController:
                 vel_change = True
 
         if vel_change:
-            self.logger.info(f"Setting gait angular velocity to: {new_ang_vel} deg/s")
+            if self.logger: self.logger.info(f"Setting gait angular velocity to: {new_ang_vel} deg/s")
 
     def set_gait(self, gait_name: str):
         """Change gait pattern"""
@@ -686,7 +688,7 @@ class HexapodController:
         """
 
         if self.is_transition_ongoing():
-            self.logger.warning(f"set_body_position() ignored - current state is {self.state.name}")
+            if self.logger: self.logger.warning(f"set_body_position() ignored - current state is {self.state.name}")
             return
 
         # Limit position offset to prevent unreachable configurations
@@ -700,7 +702,7 @@ class HexapodController:
             np.clip(dz, *z_range),
         ]
 
-        self.logger.info(f"Setting body position to: {self.target_body_position[0]:.1f}, "
+        if self.logger: self.logger.info(f"Setting body position to: {self.target_body_position[0]:.1f}, "
                          f"{self.target_body_position[1]:.1f}, {self.target_body_position[2]:.1f} mm")
 
     def set_body_orientation(self, roll: float, pitch: float, yaw: float):
@@ -715,7 +717,7 @@ class HexapodController:
         """
 
         if self.is_transition_ongoing():
-            self.logger.warning(f"set_body_orientation() ignored - current state is {self.state.name}")
+            if self.logger: self.logger.warning(f"set_body_orientation() ignored - current state is {self.state.name}")
             return
 
         # Limit orientation to prevent unreachable configurations
@@ -729,7 +731,7 @@ class HexapodController:
             np.clip(yaw,   *yaw_range),
         ])
 
-        self.logger.info(f"Setting body orientation to: {self.target_body_orientation[0]:.1f}, "
+        if self.logger: self.logger.info(f"Setting body orientation to: {self.target_body_orientation[0]:.1f}, "
                          f"{self.target_body_orientation[1]:.1f}, {self.target_body_orientation[2]:.1f} deg")
 
     # Shutdown sequence
@@ -741,10 +743,10 @@ class HexapodController:
         still in SETUP.  Call transition_to_idle() first if WALKING.
         """
         if self.state != State.IDLE:
-            self.logger.warning(f"shutdown() ignored – current state is {self.state.name}")
+            if self.logger: self.logger.warning(f"shutdown() ignored – current state is {self.state.name}")
             return
 
-        self.logger.info("Starting shutdown sequence")
+        if self.logger: self.logger.info("Starting shutdown sequence")
 
         # Start shutdown_lower: lower the body back to z = 0
         self.target_body_position = np.zeros(3)
@@ -758,10 +760,10 @@ class HexapodController:
         still in SHUTDOWN.  Call transition_to_idle() first if WALKING.
         """
         if self.state != State.SHUTDOWN_DONE:
-            self.logger.warning(f"setup() ignored - current state is {self.state.name}")
+            if self.logger: self.logger.warning(f"setup() ignored - current state is {self.state.name}")
             return
 
-        self.logger.info("Starting setup sequence")
+        if self.logger: self.logger.info("Starting setup sequence")
 
         self.state = State.SETUP_RAISE
 
@@ -771,31 +773,31 @@ class HexapodController:
         """Set the target foot position for a single leg (mm, body frame)."""
 
         if self.state != State.IDLE:
-            self.logger.warning(f"set_leg_position() ignored - current state is {self.state.name}")
+            if self.logger: self.logger.warning(f"set_leg_position() ignored - current state is {self.state.name}")
             return
 
         if leg_name not in self.leg_names:
-            self.logger.warning(f"set_leg_position() ignored - {leg_name} does not exist")
+            if self.logger: self.logger.warning(f"set_leg_position() ignored - {leg_name} does not exist")
             return
 
         self.target_leg_positions[leg_name] = np.array([x, y, z])
-        self.logger.info(f"Setting leg {leg_name} to position: {x:.1f}, {y:.1f}, {z:.1f} mm")
+        if self.logger: self.logger.info(f"Setting leg {leg_name} to position: {x:.1f}, {y:.1f}, {z:.1f} mm")
 
     def set_joint_angles(self, leg_name: str, coxa: float, femur: float, tibia: float):
         """Directly command joint angles (degrees) for a single leg."""
 
         if self.state != State.IDLE:
-            self.logger.warning(f"set_joint_angles() ignored - current state is {self.state.name}")
+            if self.logger: self.logger.warning(f"set_joint_angles() ignored - current state is {self.state.name}")
             return
 
         if leg_name not in self.leg_names:
-            self.logger.warning(f"set_joint_angles() ignored - {leg_name} does not exist")
+            if self.logger: self.logger.warning(f"set_joint_angles() ignored - {leg_name} does not exist")
             return
 
         angles_rad = np.radians([coxa, femur, tibia])
         foot_pos = self.kinematics.forward(leg_name, angles_rad)
         self.target_leg_positions[leg_name] = foot_pos
-        self.logger.info(f"Setting leg {leg_name} to angles: {coxa:.1f}, {femur:.1f}, {tibia:.1f} deg")
+        if self.logger: self.logger.info(f"Setting leg {leg_name} to angles: {coxa:.1f}, {femur:.1f}, {tibia:.1f} deg")
 
     # Other stuff
 

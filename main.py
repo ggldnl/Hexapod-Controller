@@ -26,6 +26,8 @@ if __name__ == '__main__':
                         help='Upward velocity (mm/s)')
     parser.add_argument('--controller-rate', '-c', type=float, default=20,
                         help="Controller update rate in Hz. Default is 20 Hz")
+    parser.add_argument('--verbose', '-v', action='store_false',
+                        help='Whether or not to use the logger (increased overhead)')
     parser.add_argument('--port', '-p', type=str, default='/dev/ttyAMA0',
                         help='Serial port for Servo2040 communication. Default is /dev/ttyAMA0.')
     parser.add_argument('--baud', '-b', type=int, default='115200',
@@ -43,8 +45,8 @@ if __name__ == '__main__':
     interface = Interface(kernel, config)               # Interface for servo mapping, limits, ...
 
     # Create controller
-    log_file = f'logs/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log'
-    controller = HexapodController(interface, config)
+    logfile = f'logs/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log'
+    controller = HexapodController(interface, config, verbose=args.verbose, logfile=logfile)
     controller.set_gait(args.gait)
 
     try:
