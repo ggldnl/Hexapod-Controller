@@ -60,16 +60,24 @@ class LED:
     Status LED automatically toggles on and off at a given frequency.
     """
 
-    def __init__(self, interval: float):
-        self._interval = interval
-        self._accumulator = 0.0
-        self._state = False
+    def __init__(self, interface, interval: float = 0.5):
+        self.interface = interface
+        self.interval = interval
+        self.accumulator = 0.0
+        self.state = False
 
     def update(self, dt: float):
-        self._accumulator += dt
-        if self._accumulator >= self._interval:
-            self._accumulator -= self._interval
-            self._state = not self._state
+
+        self.accumulator += dt
+        if self.accumulator >= self.interval:
+            self.accumulator -= self.interval
+            self.state = not self.state
+
+        # TODO set led color based on status (status_ok, status_error, ...)
+        if self.state:
+            self.interface.set_led(0, 208, 107, 51)
+        else:
+            self.interface.set_led(0, 0, 0, 0)
 
 
 class HexapodController:
@@ -142,7 +150,7 @@ class HexapodController:
                 self.logger.addHandler(file_handler)
 
         # Status LED
-        self._led = LED(interval=0.5)
+        self.led = LED(interface, interval=0.5)
 
         # Finally, enable the robot
         self.enabled = True
@@ -227,7 +235,7 @@ class HexapodController:
         """
 
         # TODO make status led change color based on state
-        self._led.update(dt)
+        self.led.update(dt)
 
         if not self.enabled:
             return False
