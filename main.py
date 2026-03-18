@@ -61,27 +61,25 @@ if __name__ == '__main__':
         while True:
 
             now = time.perf_counter()
-            dt = now - last_frame
+            actual_dt = now - last_frame
             last_frame = now
-            
-            controller_time_accumulator += dt
+            t += actual_dt
+
+            # Step the controller
+            outcome = controller.update(actual_dt)
 
             if t0 and t >= t0:
                 t0 = None  # invalidate so that we won't change it again
                 controller.set_linear_velocity(args.vx, args.vy, args.vz)
 
-            # Only update controller when enough time has passed
-            if controller_time_accumulator >= controller_dt:
-                outcome = controller.update(controller_dt)
-                controller_time_accumulator -= controller_dt  # Keep remainder for accuracy
+            # TODO stream state through websocket
+            # state = controller.get_state()
 
-                # TODO stream state through websocket
-                # state = controller.get_state()
-
-            t += controller_dt
-
-            # Sleep only what's left of the frame budget
+            # Warn if over budget
             elapsed = time.perf_counter() - now
+            if elapsed > controller_dt:
+                print(f"Frame over budget: {elapsed * 1000:.1f}ms > {controller_dt * 1000:.1f}ms")
+
             remaining = controller_dt - elapsed
             if remaining > 0:
                 time.sleep(remaining)
