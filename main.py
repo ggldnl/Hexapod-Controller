@@ -1,5 +1,5 @@
 """
-Control the real robot while streaming its state to a websocket.
+Execute a predefined command sequence on the real robot.
 """
 
 import yaml
@@ -18,16 +18,18 @@ if __name__ == '__main__':
     parser.add_argument('--gait', '-g', type=str, default='ripple',
                         choices=['tripod', 'wave', 'ripple'],
                         help='Initial gait pattern. Default is ripple.')
-    parser.add_argument('--vx', '-x', type=float, default=50.0,
-                        help='Forward velocity (mm/s)')
+    parser.add_argument('--vx', '-x', type=float, default=125.0,
+                        help='Forward velocity (mm/s).')
     parser.add_argument('--vy', '-y', type=float, default=0.0,
-                        help='Strafe velocity (mm/s)')
-    parser.add_argument('--vz', '-z', type=float, default=0.0,
-                        help='Upward velocity (mm/s)')
+                        help='Strafe velocity (mm/s).')
+    parser.add_argument('--vw', '-w', type=float, default=0.0,
+                        help='Yaw velocity (deg/s).')
     parser.add_argument('--controller-rate', '-c', type=float, default=20,
-                        help="Controller update rate in Hz. Default is 20 Hz")
-    parser.add_argument('--verbose', '-v', action='store_false',
-                        help='Whether or not to use the logger (increased overhead)')
+                        help="Controller update rate in Hz. Default is 20 Hz.")
+    parser.add_argument('--verbose', '-v', action='store_true',
+                        help='Whether or not to use the logger (increased overhead).')
+    parser.add_argument('--log-file', '-l', default=None,
+                        help='Log file. The robot must be verbose to actually use the file.')
     parser.add_argument('--port', '-p', type=str, default='/dev/ttyAMA0',
                         help='Serial port for Servo2040 communication. Default is /dev/ttyAMA0.')
     parser.add_argument('--baud', '-b', type=int, default='115200',
@@ -45,8 +47,7 @@ if __name__ == '__main__':
     interface = Interface(kernel, config)               # Interface for servo mapping, limits, ...
 
     # Create controller
-    logfile = f'logs/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log'
-    controller = HexapodController(interface, config, verbose=args.verbose, logfile=logfile)
+    controller = HexapodController(interface, config, verbose=args.verbose, logfile=args.log_file)
     controller.set_gait(args.gait)
 
     try:
@@ -55,7 +56,14 @@ if __name__ == '__main__':
         controller_time_accumulator = 0.0
         t = 0.0
 
-        t0 = 10.0    # start moving
+        t0 = 5.0    # look in one direction
+        t1 = 6.0    # look another direction
+        t2 = 7.0    # reset body orientation
+        t3 = 8.0    # set linear velocity
+        t4 = 12.0   # set angular velocity
+        t5 = 35.0   # stop
+        t6 = 37.0   # shutdown
+        t7 = 40.0   # exit loop
 
         last_frame = time.perf_counter()
         while True:
@@ -68,12 +76,44 @@ if __name__ == '__main__':
             # Step the controller
             outcome = controller.update(actual_dt)
 
+            # Example: at t0, look in one direction (change body orientation)
             if t0 and t >= t0:
                 t0 = None  # invalidate so that we won't change it again
-                controller.set_linear_velocity(args.vx, args.vy, args.vz)
+                controller.set_body_orientation(5, -5, 5)
 
-            # TODO stream state through websocket
-            # state = controller.get_state()
+            # Example: at t1, look to another direction (change again body orientation)
+            if t1 and t >= t1:
+                t1 = None
+                controller.set_body_orientation(-5, -5, -5)
+
+            # Example: at t2, reset body orientation
+            if t2 and t >= t2:
+                t2 = None
+                controller.set_body_orientation(0, 0, 0)
+
+            # Example: at t3, start walking
+            if t3 and t >= t3:
+                t3 = None
+                controller.set_linear_velocity(args.vx, args.vy, 0)
+
+            # Example: at t4, change angular velocity
+            if t4 and t >= t4:
+                t4 = None
+                controller.set_angular_velocity(args.vw)
+
+            # Example: at t5, stop walking
+            if t5 and t >= t5:
+                t5 = None
+                controller.set_linear_velocity(0, 0, 0)
+                controller.set_angular_velocity(0)
+
+            if t6 and t >= t6:
+                t6 = None
+                controller.shutdown()
+
+            if t7 and t >= t7:
+                t7 = None
+                break
 
             # Warn if over budget
             elapsed = time.perf_counter() - now
@@ -86,5 +126,4 @@ if __name__ == '__main__':
 
     except KeyboardInterrupt:
 
-        controller.set_linear_velocity(0, 0, 0)
-        controller.set_angular_velocity(0)
+        controller.emergency_stop()
