@@ -79,6 +79,9 @@ class LED:
         else:
             self.interface.set_led(0, 0, 0, 0)
 
+    def off(self):
+        self.interface.set_led(0, 0, 0, 0)
+
 
 class HexapodController:
     """
@@ -822,6 +825,9 @@ class HexapodController:
 
         # Set IDLE state
         self.state = State.IDLE
+
+        # Turn off status led
+        self.led.off()
 
         # Disable hardware interface
         self.disable()
