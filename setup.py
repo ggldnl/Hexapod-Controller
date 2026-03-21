@@ -20,6 +20,6 @@ setup(
         "sshkeyboard",
     ],
     package_data={
-        'controller.config': ['*.yml']
+        'controller': ['config/*.yml']
     }
 )
