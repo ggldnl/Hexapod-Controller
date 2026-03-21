@@ -856,6 +856,7 @@ class HexapodController:
             'linear_velocity': self.linear_velocity.tolist(),
             'angular_velocity': self.angular_velocity,
             'leg_positions': {k: v.tolist() for k, v in self.leg_positions.items()},
+            'joint_values': {k: v.tolist() for k, v in self.current_joints.items()},
             'state': self.state.name,
             'gait': self.gait.get_gait_info(),
             'battery_voltage': self.interface.get_voltage(),
