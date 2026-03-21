@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="hexapod",
-    version="0.1.1",
+    version="0.1.2",
     author="ggldnl",
     author_email="danielgigliotti99.dg@gmail.com",
     description="Hexapod controller package",
