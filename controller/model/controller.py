@@ -172,7 +172,11 @@ class HexapodController:
         self.current_joints = joint_values
 
         # Compute current leg positions
-        current_leg_positions = self.kinematics.forward(joint_values)
+        joint_values_rad = {
+            k: np.radians(v) if v is not None else None
+            for k, v in joint_values.items()
+        }
+        current_leg_positions = self.kinematics.forward(joint_values_rad)
         self.leg_positions = current_leg_positions
         self.target_leg_positions = current_leg_positions
 
@@ -224,7 +228,10 @@ class HexapodController:
             )
             return False
 
-        return self.interface.set_all_legs(joint_values)
+        result = self.interface.set_all_legs(joint_values)
+        if result:
+            self.current_joints = joint_values  # only sync if hardware accepted the command
+        return result
 
     # Update
 
@@ -361,8 +368,12 @@ class HexapodController:
             ]) for leg_name in self.leg_names
         }
 
+        previous_joints = self.current_joints
         self._interpolate_joints(dt, curled_joints)
-        self.interface.set_all_legs(self.current_joints)
+
+        result = self.interface.set_all_legs(self.current_joints)
+        if not result:
+            self.current_joints = previous_joints  # restore if hardware rejected the command
 
         if self.logger: self.logger.debug(
             "Target joint values  : " + ', '.join([
@@ -438,8 +449,12 @@ class HexapodController:
             ]) for leg_name in self.leg_names
         }
 
+        previous_joints = self.current_joints
         self._interpolate_joints(dt, curled_joints)
-        self.interface.set_all_legs(self.current_joints)
+
+        result = self.interface.set_all_legs(self.current_joints)
+        if not result:
+            self.current_joints = previous_joints  # restore if hardware rejects the command
 
         if self.logger: self.logger.debug(
             "Target joint values  " + ', '.join([
@@ -614,7 +629,7 @@ class HexapodController:
             vel_change = True
 
         # If the robot was WALKING and velocity is given, stay WALKING
-        elif self.state is State.WALKING:
+        elif self.state is State.WALKING and vel_norm > 1e-3:
             self.linear_velocity = new_linear_velocity
             vel_change = True
 
