@@ -19,4 +19,7 @@ setup(
         "pyserial",
         "sshkeyboard",
     ],
+    package_data={
+        'controller.config': ['*.yml']
+    }
 )
