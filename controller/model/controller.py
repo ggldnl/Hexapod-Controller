@@ -131,6 +131,11 @@ class HexapodController:
 
         self.joint_interpolation_speed = config['safety'].get('joint_vel_max', 60.0) # deg/s
 
+        # Dead-reckoning odometry in world frame
+        self.odom_x = 0.0  # mm
+        self.odom_y = 0.0  # mm
+        self.odom_yaw = 0.0  # radians
+
         # Current state
         self.state = State.SETUP_CURL
 
@@ -324,6 +329,7 @@ class HexapodController:
         updated at each update cycle by the gait generator.
         """
         self._interpolate_body_pose(dt)
+        self._update_odometry(dt)
         self.target_leg_positions = self.gait.update(dt, self.linear_velocity, self.angular_velocity)
         self.leg_positions = self.target_leg_positions
 
@@ -339,6 +345,7 @@ class HexapodController:
         """
 
         self._interpolate_body_pose(dt)
+        self._update_odometry(dt)  # keep integrating while legs are settling
         self.target_leg_positions = self.gait.update(dt, self.linear_velocity, self.angular_velocity)
         self.leg_positions = self.target_leg_positions
 
@@ -479,6 +486,18 @@ class HexapodController:
             self.disable()
 
         return True
+
+    def _update_odometry(self, dt: float):
+        """Integrate body-frame velocity into world-frame odometry."""
+
+        vx = self.linear_velocity[0]
+        vy = self.linear_velocity[1]
+        wz = np.radians(self.angular_velocity)
+
+        # Rotate body-frame velocity into world frame using current yaw
+        self.odom_x += (vx * np.cos(self.odom_yaw) - vy * np.sin(self.odom_yaw)) * dt
+        self.odom_y += (vx * np.sin(self.odom_yaw) + vy * np.cos(self.odom_yaw)) * dt
+        self.odom_yaw += wz * dt
 
     # Interpolation
 
@@ -791,6 +810,11 @@ class HexapodController:
 
         if self.logger: self.logger.info("Starting setup sequence")
 
+        # Reset odometry from the new power cycle
+        self.odom_x = 0.0
+        self.odom_y = 0.0
+        self.odom_yaw = 0.0
+
         self.state = State.SETUP_RAISE
 
     # Leg position adjustments (IDLE)
@@ -857,6 +881,11 @@ class HexapodController:
             'angular_velocity': self.angular_velocity,
             'leg_positions': {k: v.tolist() for k, v in self.leg_positions.items()},
             'joint_values': {k: v.tolist() for k, v in self.current_joints.items()},
+            'odometry': {
+                'x': self.odom_x,
+                'y': self.odom_y,
+                'yaw': self.odom_yaw
+            },
             'state': self.state.name,
             'gait': self.gait.get_gait_info(),
             'battery_voltage': self.interface.get_voltage(),
