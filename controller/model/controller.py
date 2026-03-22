@@ -345,7 +345,7 @@ class HexapodController:
         """
 
         self._interpolate_body_pose(dt)
-        self._update_odometry(dt)  # keep integrating while legs are settling
+        # self._update_odometry(dt)  # keep integrating while legs are settling
         self.target_leg_positions = self.gait.update(dt, self.linear_velocity, self.angular_velocity)
         self.leg_positions = self.target_leg_positions
 
