@@ -494,9 +494,9 @@ class HexapodController:
         vy = self.linear_velocity[1]
         wz = np.radians(self.angular_velocity)
 
-        # Rotate body-frame velocity into world frame using current yaw
-        self.odom_x += (vx * np.cos(self.odom_yaw) - vy * np.sin(self.odom_yaw)) * dt
-        self.odom_y += (vx * np.sin(self.odom_yaw) + vy * np.cos(self.odom_yaw)) * dt
+        # Rotation matrix for x-forward, y-right convention
+        self.odom_x += (vx * np.cos(self.odom_yaw) + vy * np.sin(self.odom_yaw)) * dt
+        self.odom_y += (-vx * np.sin(self.odom_yaw) + vy * np.cos(self.odom_yaw)) * dt
         self.odom_yaw += wz * dt
 
     # Interpolation
