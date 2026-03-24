@@ -124,7 +124,7 @@ class HexapodController:
         self.leg_positions = {}
         self.target_leg_positions = {}
 
-        # Joint angles (degrees) — used only during joint-space sequencer steps
+        # Joint angles (degrees)
         self.current_joints = {}
         self.joint_interpolation_speed = config['safety'].get('joint_vel_max', 60.0)  # deg/s
 
