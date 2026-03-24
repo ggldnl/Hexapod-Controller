@@ -390,7 +390,13 @@ class HexapodController:
         self._send_joint_angles()
 
         if self.are_leg_positions_settled():
-            standing_height = self.config['control'].get('standing_height', 80.0)
+
+            # The next step (_step_interpolate_body) will interpolate to the target
+            # body position (z=standing_height). This means at the end of the
+            # interpolation body_position will be (0, 0, standing_height), while
+            # it should represent an offset relative to the standing reference frame.
+            # We will use this machinery but reset self.body_position afterward
+            standing_height = self.config['gaits'].get('standing_height', 80.0)
             self.target_body_position = np.array([0.0, 0.0, standing_height])
             return True
 
@@ -403,7 +409,16 @@ class HexapodController:
         """
         self._interpolate_body_pose(dt)
         self._send_joint_angles()
-        return self.is_body_pose_settled()
+
+        if self.is_body_pose_settled():
+
+            # Reset body height to 0: body_position represents an offset relative to
+            # the standing reference frame
+            self.body_position = np.array([0.0, 0.0, 0.0])
+            self.target_body_position = np.array([0.0, 0.0, 0.0])
+            return True
+
+        return False
 
     # Sequence builders
 
@@ -504,7 +519,7 @@ class HexapodController:
         wz = np.radians(self.angular_velocity)
 
         self.odom_x += (vx * np.cos(self.odom_yaw) + vy * np.sin(self.odom_yaw)) * dt
-        self.odom_y += (-vx * np.sin(self.odom_yaw) + vy * np.cos(self.odom_yaw)) * dt
+        self.odom_y += (vx * np.sin(self.odom_yaw) - vy * np.cos(self.odom_yaw)) * dt
         self.odom_yaw += wz * dt
 
     # Internal helpers
@@ -701,14 +716,14 @@ class HexapodController:
                 )
             return
 
-        roll_range  = self.config['safety'].get('roll_range',  (-10, 10))
+        roll_range = self.config['safety'].get('roll_range', (-10, 10))
         pitch_range = self.config['safety'].get('pitch_range', (-10, 10))
-        yaw_range   = self.config['safety'].get('yaw_range',   (-10, 10))
+        yaw_range = self.config['safety'].get('yaw_range', (-10, 10))
 
         self.target_body_orientation[:] = np.radians([
-            np.clip(roll,  *roll_range),
+            np.clip(roll, *roll_range),
             np.clip(pitch, *pitch_range),
-            np.clip(yaw,   *yaw_range),
+            np.clip(yaw, *yaw_range),
         ])
 
         if self.logger:
@@ -846,8 +861,6 @@ class HexapodController:
         return {
             'enabled': self.enabled,
             'state': self.state.name,
-            'walking': self.is_walking(),
-            'busy': self.is_busy(),
             'body_position': self.body_position.tolist(),
             'body_orientation': np.degrees(self.body_orientation).tolist(),
             'linear_velocity': self.linear_velocity.tolist(),
