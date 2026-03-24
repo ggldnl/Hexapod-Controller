@@ -33,6 +33,26 @@ has settled.
 Velocity commands follow the ROS cmd_vel convention: the controller holds the
 last commanded value until overwritten. Zero-velocity watchdog timeouts are
 the responsibility of the publishing node.
+
+Body-pose reference frame
+-------------------------
+Internally, ``body_position`` is an *absolute* 3-D vector in the controller's
+own frame (mm).  The nominal standing pose is:
+
+    body_position    = [0, 0, standing_height]   (mm)
+    body_orientation = [0, 0, 0]                 (rad)
+
+The public API ``set_body_position(dx, dy, dz)`` accepts *offsets relative to
+that standing reference*, so callers never need to know ``standing_height``:
+
+    target_body_position = [dx, dy, standing_height + dz]
+
+The x/y offsets are independent of the reference height; dz is measured
+upward from the default standing height (dz=0 -> normal standing height,
+dz>0 -> body raised above nominal, dz<0 -> body lowered below nominal).
+
+Internal sequencer steps (extend_to_neutral, shutdown lowering) write
+``target_body_position`` directly as an absolute value, bypassing the API.
 """
 
 from enum import Enum
@@ -70,12 +90,29 @@ class HexapodController:
         self.linear_velocity = np.zeros(3)  # [vx, vy, vz] mm/s in body frame
         self.angular_velocity = 0.0         # wz deg/s in body frame
 
-        # Body pose: persistent offset from the standing reference frame.
-        # set_body_position / set_body_orientation update the targets;
+        
+        # Standing reference height (mm).
+        # The z-component of body_position when the robot stands at its
+        # nominal pose.  Read from config once; never modified afterwards.
+        # set_body_position() adds this to the caller-supplied dz so that
+        # the user always works in "offset from standing height" terms.
+        
+        self.standing_height: float = config['control'].get('standing_height', 80.0)
+
+        # Body pose — absolute values in the controller's internal frame.
+        #
+        #   body_position    [x, y, z] mm
+        #   body_orientation [roll, pitch, yaw] rad
+        #
+        # After SETUP completes the robot stands at:
+        #   body_position    ≈ [0, 0, standing_height]
+        #   body_orientation = [0, 0, 0]
+        #
+        # set_body_position / set_body_orientation write the *targets*;
         # the controller interpolates toward them every tick.
-        # Body pose is preserved across IDLE ↔ WALK transitions.
-        self.body_position = np.zeros(3)      # current [x, y, z] offset (mm)
-        self.body_orientation = np.zeros(3)   # current [roll, pitch, yaw] (rad)
+        # Body pose is preserved across IDLE <-> WALK transitions.
+        self.body_position = np.zeros(3)
+        self.body_orientation = np.zeros(3)
         self.target_body_position = np.zeros(3)
         self.target_body_orientation = np.zeros(3)
 
@@ -91,7 +128,7 @@ class HexapodController:
         self.current_joints = {}
         self.joint_interpolation_speed = config['safety'].get('joint_vel_max', 60.0)  # deg/s
 
-        # Dead-reckoning odometry in world frame
+        # Dead-reckoning odometry in world frame (controller convention)
         self.odom_x = 0.0    # mm
         self.odom_y = 0.0    # mm
         self.odom_yaw = 0.0  # rad
@@ -134,7 +171,9 @@ class HexapodController:
         self.enable()
         self._build_setup_sequence()
 
+    
     # Hardware enable / disable
+    
 
     def enable(self):
         """Enable interface and read current robot state."""
@@ -162,7 +201,9 @@ class HexapodController:
         self.interface.disable()
         self.enabled = False
 
+    
     # LED
+    
 
     def _update_led(self, dt: float):
         """Toggle the status LED at a fixed interval."""
@@ -180,7 +221,9 @@ class HexapodController:
         self._led_state = False
         self.interface.set_led(0, 0, 0, 0)
 
+    
     # IK and hardware output
+    
 
     def _send_joint_angles(self) -> bool:
         """
@@ -222,7 +265,9 @@ class HexapodController:
             self.current_joints = joint_values  # sync only when hardware accepted
         return result
 
+    
     # Main update
+    
 
     def update(self, dt: float) -> bool:
         """
@@ -260,7 +305,9 @@ class HexapodController:
 
         return False
 
+    
     # Per-state updates
+    
 
     def _update_idle(self, dt: float) -> bool:
         """Interpolate body pose and individually commanded leg positions."""
@@ -303,7 +350,9 @@ class HexapodController:
 
         return self._send_joint_angles()
 
+    
     # Step sequencer
+    
 
     def _update_sequencer(self, dt: float) -> bool:
         """Run the current step; advance when it returns True."""
@@ -319,7 +368,9 @@ class HexapodController:
 
         return True
 
+    
     # Sequencer steps
+    
 
     def _step_finish_gait(self, dt: float) -> bool:
         """
@@ -385,19 +436,18 @@ class HexapodController:
         """
         Interpolate leg positions from curled to neutral stance.
         When done, arms the body raise by setting the standing-height target.
+
+        This step writes target_body_position as an *absolute* internal value
+        ([0, 0, standing_height]), bypassing the set_body_position() offset
+        API intentionally — this is a sequencer operation, not a user command.
         """
         self._interpolate_leg_positions(dt)
         self._send_joint_angles()
 
         if self.are_leg_positions_settled():
-
-            # The next step (_step_interpolate_body) will interpolate to the target
-            # body position (z=standing_height). This means at the end of the
-            # interpolation body_position will be (0, 0, standing_height), while
-            # it should represent an offset relative to the standing reference frame.
-            # We will use this machinery but reset self.body_position afterward
-            standing_height = self.config['gaits'].get('standing_height', 80.0)
-            self.target_body_position = np.array([0.0, 0.0, standing_height])
+            # Raise body to the absolute standing reference height.
+            # x=0, y=0 -> no lateral offset; z=standing_height -> nominal height.
+            self.target_body_position = np.array([0.0, 0.0, self.standing_height])
             return True
 
         return False
@@ -409,16 +459,7 @@ class HexapodController:
         """
         self._interpolate_body_pose(dt)
         self._send_joint_angles()
-
-        if self.is_body_pose_settled():
-
-            # Reset body height to 0: body_position represents an offset relative to
-            # the standing reference frame
-            self.body_position = np.array([0.0, 0.0, 0.0])
-            self.target_body_position = np.array([0.0, 0.0, 0.0])
-            return True
-
-        return False
+        return self.is_body_pose_settled()
 
     # Sequence builders
 
@@ -445,6 +486,11 @@ class HexapodController:
         """
         self.linear_velocity = np.zeros(3)
         self.angular_velocity = 0.0
+
+        # Lower body back to absolute ground level: [0, 0, 0].
+        # This is a direct absolute write to bypass the offset API of
+        # set_body_position(). The shutdown sequence must reach z=0 regardless
+        # of what standing_height is.
         self.target_body_position = np.zeros(3)
         self.target_body_orientation = np.zeros(3)
 
@@ -513,10 +559,28 @@ class HexapodController:
                 self.current_joints[leg_name] = target_joints[leg_name].copy()
 
     def _update_odometry(self, dt: float):
-        """Integrate body-frame velocity into world-frame dead-reckoning odometry."""
-        vx = self.linear_velocity[0]
-        vy = self.linear_velocity[1]
-        wz = np.radians(self.angular_velocity)
+        """
+        Integrate body-frame velocities into world-frame dead-reckoning odometry.
+
+        Controller frame convention:
+            vx > 0  forward   (+x)
+            vy > 0  rightward (+y in controller, i.e. positive = right)
+            wz > 0  CCW yaw
+
+        Standard body-to-world projection (z-up, right-hand):
+            world_x += ( vx·cos θ  +  vy·sin θ ) · dt
+            world_y += ( vx·sin θ  −  vy·cos θ ) · dt
+
+        Derivation:
+          forward unit vector in world  = ( cos θ,  sin θ )
+          rightward unit vector in world = ( sin θ, −cos θ )
+
+        Previous (buggy) code:
+            world_y += (−vx·sin θ + vy·cos θ) · dt   ← both signs wrong
+        """
+        vx  = self.linear_velocity[0]
+        vy  = self.linear_velocity[1]
+        wz  = np.radians(self.angular_velocity)
 
         self.odom_x += (vx * np.cos(self.odom_yaw) + vy * np.sin(self.odom_yaw)) * dt
         self.odom_y += (vx * np.sin(self.odom_yaw) - vy * np.cos(self.odom_yaw)) * dt
@@ -607,7 +671,7 @@ class HexapodController:
             for n in self.leg_names
         )
 
-    # Velocity control (IDLE and WALK)
+    # Velocity control (IDLE and WALK)    
 
     def set_linear_velocity(self, vx: float, vy: float, vz: float = 0.0):
         """
@@ -664,17 +728,30 @@ class HexapodController:
         if self.logger:
             self.logger.info(f"Angular velocity: {self.angular_velocity:.1f} deg/s")
 
-    # Body pose control (IDLE and WALK)
+    # Body pose control (IDLE and WALK)    
 
     def set_body_position(self, dx: float, dy: float, dz: float):
         """
-        Set body position offset relative to the standing reference frame.
-        Persistent: stays until explicitly changed. Accepted in IDLE and WALK.
+        Set body position as an *offset from the standing reference frame*.
+
+        The standing reference has body_position = [0, 0, standing_height].
+        Calling this method with (dx, dy, dz) sets:
+
+            target_body_position = [clip(dx, x_range),
+                                    clip(dy, y_range),
+                                    standing_height + clip(dz, z_range)]
+
+        so that dz=0 always means "normal standing height" regardless of what
+        the configured standing_height value is.  This prevents the common
+        mistake of sending (x, y, 0) and inadvertently collapsing z to ground
+        level.
+
+        Persistent: stays until explicitly changed.  Accepted in IDLE and WALK.
 
         Args:
-            dx: Forward/backward shift (mm, positive = forward)
-            dy: Left/right shift (mm, positive = right)
-            dz: Up/down shift (mm, positive = up)
+            dx: Forward/backward shift from standing reference (mm, positive = forward)
+            dy: Left/right shift from standing reference (mm, positive = right)
+            dz: Height offset relative to standing height (mm, positive = higher)
         """
         if self.state not in {State.IDLE, State.WALK}:
             if self.logger:
@@ -683,6 +760,9 @@ class HexapodController:
                 )
             return
 
+        # TODO analyze better this method: no boundaries are set on the final position of the body.
+        #   we could call the same method over and over again with small increments and it will work
+
         x_range = self.config['safety'].get('x_range', (-50, 50))
         y_range = self.config['safety'].get('y_range', (-50, 50))
         z_range = self.config['safety'].get('z_range', (-50, 50))
@@ -690,14 +770,11 @@ class HexapodController:
         self.target_body_position[:] = [
             np.clip(dx, *x_range),
             np.clip(dy, *y_range),
-            np.clip(dz, *z_range),
+            self.standing_height + np.clip(dz, *z_range),
         ]
 
         if self.logger:
-            self.logger.info(
-                f"Body position target: {self.target_body_position[0]:.1f}, "
-                f"{self.target_body_position[1]:.1f}, {self.target_body_position[2]:.1f} mm"
-            )
+            self.logger.info(f"Body position offset: dx={dx:.1f} dy={dy:.1f} dz={dz:.1f} mm")
 
     def set_body_orientation(self, roll: float, pitch: float, yaw: float):
         """
@@ -853,24 +930,26 @@ class HexapodController:
 
         self._led_off()
         self.disable()
-
+    
     # Telemetry
 
     def get_status(self) -> dict:
-        """Return a snapshot of current robot state."""
+        """
+        Return a snapshot of current robot state.
+        """
         return {
             'enabled': self.enabled,
             'state': self.state.name,
-            'body_position': self.body_position.tolist(),
-            'body_orientation': np.degrees(self.body_orientation).tolist(),
-            'linear_velocity': self.linear_velocity.tolist(),
-            'angular_velocity': self.angular_velocity,
+            'body_position': self.body_position.tolist(),                       # mm, absolute
+            'body_orientation': np.degrees(self.body_orientation).tolist(),     # deg
+            'linear_velocity': self.linear_velocity.tolist(),                   # mm/s
+            'angular_velocity': self.angular_velocity,                          # deg/s
             'leg_positions': {k: v.tolist() for k, v in self.leg_positions.items()},
             'joint_values': {k: v.tolist() for k, v in self.current_joints.items()},
             'odometry': {
-                'x': self.odom_x,
-                'y': self.odom_y,
-                'yaw': np.degrees(self.odom_yaw),
+                'x': self.odom_x,       # mm
+                'y': self.odom_y,       # mm
+                'yaw': self.odom_yaw,   # rad
             },
             'gait': self.gait.get_gait_info(),
             'battery_voltage': self.interface.get_voltage(),
