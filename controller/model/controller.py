@@ -870,7 +870,7 @@ class HexapodController:
             'odometry': {
                 'x': self.odom_x,
                 'y': self.odom_y,
-                'yaw': self.odom_yaw,
+                'yaw': np.degrees(self.odom_yaw),
             },
             'gait': self.gait.get_gait_info(),
             'battery_voltage': self.interface.get_voltage(),
