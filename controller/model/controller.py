@@ -90,13 +90,18 @@ class HexapodController:
         self.linear_velocity = np.zeros(3)  # [vx, vy, vz] mm/s in body frame
         self.angular_velocity = 0.0         # wz deg/s in body frame
 
+        # Smoothed velocities for walking (first-order filter to smooth joystick inputs)
+        self._smoothed_linear_velocity = np.zeros(3)
+        self._smoothed_angular_velocity = 0.0
+        self._velocity_smoothing_tau = config['safety'].get('velocity_smoothing_tau', 0.1)  # seconds
+
         # Body pose — absolute values in the controller's internal frame.
         #
-        #   body_position    [x, y, z] mm
+        #   body_position [x, y, z] mm
         #   body_orientation [roll, pitch, yaw] rad
         #
         # After SETUP completes the robot stands at:
-        #   body_position    ≈ [0, 0, standing_height]
+        #   body_position = [0, 0, standing_height]
         #   body_orientation = [0, 0, 0]
         #
         # set_body_position / set_body_orientation write the *targets*;
@@ -106,10 +111,6 @@ class HexapodController:
         self.body_orientation = np.zeros(3)
         self.target_body_position = np.zeros(3)
         self.target_body_orientation = np.zeros(3)
-
-        # TODO think if it is better to access config as follows or if it is better to provide
-        #   a property for each key. Maybe it's better to save the keys
-        #   (i.e. self.value = config['some_key']), otherwise we will have too many properties
 
         # Body interpolation speeds
         self.body_linear_velocity = config['safety'].get('body_lin_vel_max', 50.0)   # mm/s
@@ -137,7 +138,8 @@ class HexapodController:
         # gait can begin. Set to False whenever WALK is entered from IDLE.
         self._walk_ready = False
 
-        # Status LED — managed inline
+        # Status LED
+        self._led_interval = 1 / self.config['rate'].get('led_update_rate', 2)
         self._led_accumulator = 0.0
         self._led_state = False
 
@@ -168,10 +170,6 @@ class HexapodController:
     @property
     def standing_height(self):
         return self.config['gait'].get('standing_height', 80.0)
-
-    @property
-    def led_interval(self):
-        return 1 / self.config['rate'].get('led_update_rate', 2)
 
     # Hardware enable / disable
 
@@ -206,8 +204,8 @@ class HexapodController:
     def _update_led(self, dt: float):
         """Toggle the status LED at a fixed interval."""
         self._led_accumulator += dt
-        if self._led_accumulator >= self.led_interval:
-            self._led_accumulator -= self.led_interval
+        if self._led_accumulator >= self._led_interval:
+            self._led_accumulator -= self._led_interval
             self._led_state = not self._led_state
 
         if self._led_state:
@@ -218,7 +216,7 @@ class HexapodController:
     def _led_off(self):
         self._led_state = False
         self.interface.set_led(0, 0, 0, 0)
-    
+
     # IK and hardware output
 
     def _send_joint_angles(self) -> bool:
@@ -260,7 +258,7 @@ class HexapodController:
         if result:
             self.current_joints = joint_values  # sync only when hardware accepted
         return result
-    
+
     # Main update
 
     def update(self, dt: float) -> bool:
@@ -291,14 +289,6 @@ class HexapodController:
         if self.state is State.IDLE:
             return self._update_idle(dt)
 
-        # TODO whenever we go from IDLE to WALK the legs change abruptly
-        #   from neutral stance (IDLE) to the position they have at the
-        #   beginning of their gait sequence (phase=0). We should provide
-        #   a mini transition state that brings the legs there, at least
-        #   the ones that should swing at the beginning (avoid dragging
-        #   legs on the ground when readying to walk and start the gait
-        #   sequence)
-
         if self.state is State.WALK:
             return self._update_walk(dt)
 
@@ -328,11 +318,6 @@ class HexapodController:
                   the gait has fully settled.
         """
 
-        # TODO provide a better way to transition from current velocity
-        #   to another e.g. we are walking with a given linear/angular velocity
-        #   and the user suddenly changes velocity; we should provide a smooth
-        #   transition
-
         self._interpolate_body_pose(dt)
         self._update_odometry(dt)
 
@@ -344,9 +329,12 @@ class HexapodController:
                 self.gait.reset()
             return self._send_joint_angles()
 
+        # Smooth velocity inputs during walking to handle frequent ROS2 commands
+        self._smooth_velocities(dt)
+
         if self._gait_is_active():
             # Actual gait
-            positions = self.gait.update(dt, self.linear_velocity, self.angular_velocity)
+            positions = self.gait.update(dt, self._smoothed_linear_velocity, self._smoothed_angular_velocity)
             self.leg_positions = positions
             self.target_leg_positions = {k: v.copy() for k, v in positions.items()}
         else:
@@ -437,7 +425,7 @@ class HexapodController:
 
     def _step_extend_to_neutral(self, dt: float) -> bool:
         """
-        Interpolate leg positions from curled to neutral stance.
+        Interpolate leg positions from curled to gait neutral stance.
         When done, arms the body raise by setting the standing-height target.
 
         This step writes target_body_position as an *absolute* internal value
@@ -468,6 +456,11 @@ class HexapodController:
 
     def _build_setup_sequence(self):
         """Populate the sequencer for the startup path."""
+        # Set target leg positions to gait neutral stance at the start
+        self.target_leg_positions = {
+            k: v.copy() for k, v in self.gait.neutral_stance_positions.items()
+        }
+
         self._sequence = [
             self._step_curl_joints,
             self._step_extend_to_neutral,
@@ -489,6 +482,8 @@ class HexapodController:
         """
         self.linear_velocity = np.zeros(3)
         self.angular_velocity = 0.0
+        self._smoothed_linear_velocity = np.zeros(3)
+        self._smoothed_angular_velocity = 0.0
 
         # Lower body back to absolute ground level: [0, 0, 0].
         # This is a direct absolute write to bypass the offset API of
@@ -549,7 +544,7 @@ class HexapodController:
         Used only during joint-space sequencer steps.
 
         Args:
-            dt:            Time step in seconds
+            dt: Time step in seconds
             target_joints: {leg_name: np.array([coxa, femur, tibia])} in degrees
         """
         max_step = self.joint_interpolation_speed * dt
@@ -561,6 +556,24 @@ class HexapodController:
             else:
                 self.current_joints[leg_name] = target_joints[leg_name].copy()
 
+    def _smooth_velocities(self, dt: float):
+        """
+        Apply first-order exponential smoothing to velocity commands.
+        Softens joystick/ROS2 inputs that may change frequently.
+
+        Uses: tau = time constant (seconds). Higher tau = slower tracking.
+        alpha = dt / (tau + dt)  where 0 < alpha <= 1
+        """
+        if self._velocity_smoothing_tau <= 0:
+            # Disabled: use commands directly
+            self._smoothed_linear_velocity = self.linear_velocity.copy()
+            self._smoothed_angular_velocity = self.angular_velocity
+        else:
+            # First-order filter: smoothed = smoothed + alpha * (cmd - smoothed)
+            alpha = dt / (self._velocity_smoothing_tau + dt)
+            self._smoothed_linear_velocity += alpha * (self.linear_velocity - self._smoothed_linear_velocity)
+            self._smoothed_angular_velocity += alpha * (self.angular_velocity - self._smoothed_angular_velocity)
+
     def _update_odometry(self, dt: float):
         """
         Integrate body-frame velocities into world-frame dead-reckoning odometry.
@@ -571,19 +584,16 @@ class HexapodController:
             wz > 0  CCW yaw
 
         Standard body-to-world projection (z-up, right-hand):
-            world_x += ( vx·cos θ  +  vy·sin θ ) · dt
-            world_y += ( vx·sin θ  −  vy·cos θ ) · dt
+            world_x += ( vx cos θ  +  vy sin θ ) dt
+            world_y += ( vx sin θ  −  vy cos θ ) dt
 
         Derivation:
-          forward unit vector in world  = ( cos θ,  sin θ )
-          rightward unit vector in world = ( sin θ, −cos θ )
-
-        Previous (buggy) code:
-            world_y += (−vx·sin θ + vy·cos θ) · dt   ← both signs wrong
+            forward unit vector in world  = ( cos θ,  sin θ )
+            rightward unit vector in world = ( sin θ, −cos θ )
         """
-        vx  = self.linear_velocity[0]
-        vy  = self.linear_velocity[1]
-        wz  = np.radians(self.angular_velocity)
+        vx  = self._smoothed_linear_velocity[0]
+        vy  = self._smoothed_linear_velocity[1]
+        wz  = np.radians(self._smoothed_angular_velocity)
 
         self.odom_x += (vx * np.cos(self.odom_yaw) + vy * np.sin(self.odom_yaw)) * dt
         self.odom_y += (vx * np.sin(self.odom_yaw) - vy * np.cos(self.odom_yaw)) * dt
@@ -597,8 +607,8 @@ class HexapodController:
         Combines linear speed with the tangential equivalent of yaw rate
         at the nominal stance radius, matching the formula in GaitGenerator.
         """
-        linear_speed = np.linalg.norm(self.linear_velocity[:2])
-        angular_speed_equiv = abs(np.radians(self.angular_velocity)) * self.gait.stance_radius
+        linear_speed = np.linalg.norm(self._smoothed_linear_velocity[:2])
+        angular_speed_equiv = abs(np.radians(self._smoothed_angular_velocity)) * self.gait.stance_radius
         return linear_speed + angular_speed_equiv
 
     def _gait_is_active(self) -> bool:
@@ -674,7 +684,7 @@ class HexapodController:
             for n in self.leg_names
         )
 
-    # Velocity control (IDLE and WALK)    
+    # Velocity control (IDLE and WALK)
 
     def set_linear_velocity(self, vx: float, vy: float, vz: float = 0.0):
         """
@@ -693,7 +703,7 @@ class HexapodController:
                 )
             return
 
-        max_linear = self.config['safety']['lin_vel_max']
+        max_linear = self.config['safety'].get('lin_vel_max', 250.0)  # mm/s
         self.linear_velocity = np.array([
             np.clip(vx, -max_linear, max_linear),
             np.clip(vy, -max_linear, max_linear),
@@ -723,7 +733,7 @@ class HexapodController:
                 )
             return
 
-        max_angular = self.config['safety']['ang_vel_max']
+        max_angular = self.config['safety'].get('ang_vel_max', 60.0)  # deg/s
         self.angular_velocity = float(np.clip(wz, -max_angular, max_angular))
 
         self._maybe_enter_walk()
@@ -731,25 +741,27 @@ class HexapodController:
         if self.logger:
             self.logger.info(f"Angular velocity: {self.angular_velocity:.1f} deg/s")
 
-    # Body pose control (IDLE and WALK)    
+    # Body pose control (IDLE and WALK)
 
     def set_body_position(self, dx: float, dy: float, dz: float):
         """
-        Set body position as an *offset from the standing reference frame*.
+        Set body position as an offset from the standing reference frame.
 
         The standing reference has body_position = [0, 0, standing_height].
-        Calling this method with (dx, dy, dz) sets:
+        The xy components are bounded by body_position_max_radius to prevent
+        overextension of legs. The requested offset (dx, dy) is accepted only if
+        sqrt(dx^2 + dy^2) <= body_position_max_radius.
 
-            target_body_position = [clip(dx, x_range),
-                                    clip(dy, y_range),
+        Calling this method with valid (dx, dy, dz) sets:
+
+            target_body_position = [clip(dx, radius),
+                                    clip(dy, radius),
                                     standing_height + clip(dz, z_range)]
 
-        so that dz=0 always means "normal standing height" regardless of what
-        the configured standing_height value is.  This prevents the common
-        mistake of sending (x, y, 0) and inadvertently collapsing z to ground
-        level.
+        So that dz=0 always means "normal standing height" regardless of the
+        configured standing_height value.
 
-        Persistent: stays until explicitly changed.  Accepted in IDLE and WALK.
+        Persistent: stays until explicitly changed. Accepted in IDLE and WALK.
 
         Args:
             dx: Forward/backward shift from standing reference (mm, positive = forward)
@@ -763,19 +775,22 @@ class HexapodController:
                 )
             return
 
-        # TODO analyze better this method: no boundaries are set on the final position of the body.
-        #   we could call the same method over and over again with small increments and it will work
-        #   -> provide a better way to bound body displacement
+        # Check xy radius constraint
+        xy_radius = np.sqrt(dx**2 + dy**2)
 
-        x_range = self.config['safety'].get('x_range', (-50, 50))
-        y_range = self.config['safety'].get('y_range', (-50, 50))
+        # Body position constraint: maximum radial distance from standing reference in xy plane
+        body_position_max_radius = self.config['safety'].get('body_position_max_radius', 50.0)  # mm
+
+        if xy_radius > body_position_max_radius:
+            if self.logger:
+                self.logger.warning(
+                    f"set_body_position() rejected: xy offset ({dx:.1f}, {dy:.1f}) "
+                    f"exceeds max radius {body_position_max_radius:.1f} mm"
+                )
+            return
+
         z_range = self.config['safety'].get('z_range', (-50, 50))
-
-        self.target_body_position[:] = [
-            np.clip(dx, *x_range),
-            np.clip(dy, *y_range),
-            self.standing_height + np.clip(dz, *z_range),
-        ]
+        self.target_body_position[:] = [dx, dy, self.standing_height + np.clip(dz, *z_range)]
 
         if self.logger:
             self.logger.info(f"Body position offset: dx={dx:.1f} dy={dy:.1f} dz={dz:.1f} mm")
@@ -927,6 +942,8 @@ class HexapodController:
         """Immediately halt all motion and disable hardware."""
         self.linear_velocity = np.zeros(3)
         self.angular_velocity = 0.0
+        self._smoothed_linear_velocity = np.zeros(3)
+        self._smoothed_angular_velocity = 0.0
 
         # Freeze body pose where it is
         self.target_body_position = self.body_position.copy()
@@ -938,9 +955,7 @@ class HexapodController:
     # Telemetry
 
     def get_status(self) -> dict:
-        """
-        Return a snapshot of current robot state.
-        """
+        """Return a snapshot of current robot state."""
         return {
             'enabled': self.enabled,
             'state': self.state.name,
