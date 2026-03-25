@@ -6,7 +6,7 @@ States
 SETUP       Uninterruptible startup sequence: curl joints -> extend to neutral
             stance -> raise body. Ends in IDLE.
 
-IDLE        Stable state. Accepts body pose, leg, and joint adjustment commands.
+IDLE        Stable state. Accepts body pose, leg, and joint commands.
             Transitions to WALK on any non-zero velocity command (leg
             are reset to neutral stance first; body pose changes are
             preserved). Transitions to SHUTDOWN on shutdown().
@@ -32,27 +32,20 @@ has settled.
 
 Velocity commands follow the ROS cmd_vel convention: the controller holds the
 last commanded value until overwritten. Zero-velocity watchdog timeouts are
-the responsibility of the publishing node.
+responsibility of the user/publishing node.
 
-Body-pose reference frame
--------------------------
-Internally, ``body_position`` is an *absolute* 3-D vector in the controller's
+Internally, body_position is an absolute 3-D vector in the controller's
 own frame (mm).  The nominal standing pose is:
 
-    body_position    = [0, 0, standing_height]   (mm)
+    body_position = [0, 0, standing_height]   (mm)
     body_orientation = [0, 0, 0]                 (rad)
 
-The public API ``set_body_position(dx, dy, dz)`` accepts *offsets relative to
-that standing reference*, so callers never need to know ``standing_height``:
-
-    target_body_position = [dx, dy, standing_height + dz]
+The public API set_body_position(dx, dy, dz) accepts offsets relative to
+that standing reference.
 
 The x/y offsets are independent of the reference height; dz is measured
 upward from the default standing height (dz=0 -> normal standing height,
 dz>0 -> body raised above nominal, dz<0 -> body lowered below nominal).
-
-Internal sequencer steps (extend_to_neutral, shutdown lowering) write
-``target_body_position`` directly as an absolute value, bypassing the API.
 """
 
 from enum import Enum
@@ -88,7 +81,7 @@ class HexapodController:
 
         # Gait velocities (held until overwritten — no internal decay)
         self.linear_velocity = np.zeros(3)  # [vx, vy, vz] mm/s in body frame
-        self.angular_velocity = 0.0         # wz deg/s in body frame
+        self.angular_velocity = 0.0 # wz deg/s in body frame
 
         # Smoothed velocities for walking (first-order filter to smooth joystick inputs)
         self._smoothed_linear_velocity = np.zeros(3)
@@ -169,7 +162,7 @@ class HexapodController:
 
     @property
     def standing_height(self):
-        return self.config['gait'].get('standing_height', 80.0)
+        return self.config['gaits'].get('standing_height', 80.0)
 
     # Hardware enable / disable
 
@@ -623,7 +616,12 @@ class HexapodController:
         """
         if self.state is not State.IDLE:
             return
-        if self._effective_speed() < 1e-3:
+
+        # Check RAW velocities (not smoothed) to detect if a command was issued.
+        # Smoothed velocities are zero at startup.
+        linear_speed = np.linalg.norm(self.linear_velocity[:2])
+        angular_speed_equiv = abs(np.radians(self.angular_velocity)) * self.gait.stance_radius
+        if linear_speed + angular_speed_equiv < 1e-3:
             return
 
         if self.logger:

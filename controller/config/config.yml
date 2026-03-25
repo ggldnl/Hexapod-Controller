@@ -120,8 +120,9 @@ safety:
   voltage_min: 5.0    # V
   current_max: 12.0   # A
 
-  lin_vel_max: 250    # mm/s
-  ang_vel_max: 60     # deg/s
+  lin_vel_max: 250              # mm/s
+  ang_vel_max: 60               # deg/s
+  velocity_smoothing_tau: 0.1   # s
 
   body_lin_vel_max: 50  # mm/s
   body_ang_vel_max: 30  # deg/s
