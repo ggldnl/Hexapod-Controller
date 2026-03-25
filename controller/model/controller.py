@@ -90,15 +90,6 @@ class HexapodController:
         self.linear_velocity = np.zeros(3)  # [vx, vy, vz] mm/s in body frame
         self.angular_velocity = 0.0         # wz deg/s in body frame
 
-        
-        # Standing reference height (mm).
-        # The z-component of body_position when the robot stands at its
-        # nominal pose.  Read from config once; never modified afterwards.
-        # set_body_position() adds this to the caller-supplied dz so that
-        # the user always works in "offset from standing height" terms.
-        
-        self.standing_height: float = config['control'].get('standing_height', 80.0)
-
         # Body pose — absolute values in the controller's internal frame.
         #
         #   body_position    [x, y, z] mm
@@ -115,6 +106,10 @@ class HexapodController:
         self.body_orientation = np.zeros(3)
         self.target_body_position = np.zeros(3)
         self.target_body_orientation = np.zeros(3)
+
+        # TODO think if it is better to access config as follows or if it is better to provide
+        #   a property for each key. Maybe it's better to save the keys
+        #   (i.e. self.value = config['some_key']), otherwise we will have too many properties
 
         # Body interpolation speeds
         self.body_linear_velocity = config['safety'].get('body_lin_vel_max', 50.0)   # mm/s
@@ -138,14 +133,13 @@ class HexapodController:
         self._sequence_index = 0
         self._post_sequence_state = State.IDLE
 
-        # WALK sub-state: True once legs have reached neutral stance and the
+        # WALK substate: True once legs have reached neutral stance and the
         # gait can begin. Set to False whenever WALK is entered from IDLE.
         self._walk_ready = False
 
         # Status LED — managed inline
         self._led_accumulator = 0.0
         self._led_state = False
-        self._led_interval = config.get('led_interval', 0.5)  # seconds per toggle
 
         # Logging
         self.logger = None
@@ -171,9 +165,15 @@ class HexapodController:
         self.enable()
         self._build_setup_sequence()
 
-    
+    @property
+    def standing_height(self):
+        return self.config['gait'].get('standing_height', 80.0)
+
+    @property
+    def led_interval(self):
+        return 1 / self.config['rate'].get('led_update_rate', 2)
+
     # Hardware enable / disable
-    
 
     def enable(self):
         """Enable interface and read current robot state."""
@@ -201,15 +201,13 @@ class HexapodController:
         self.interface.disable()
         self.enabled = False
 
-    
     # LED
-    
 
     def _update_led(self, dt: float):
         """Toggle the status LED at a fixed interval."""
         self._led_accumulator += dt
-        if self._led_accumulator >= self._led_interval:
-            self._led_accumulator -= self._led_interval
+        if self._led_accumulator >= self.led_interval:
+            self._led_accumulator -= self.led_interval
             self._led_state = not self._led_state
 
         if self._led_state:
@@ -220,10 +218,8 @@ class HexapodController:
     def _led_off(self):
         self._led_state = False
         self.interface.set_led(0, 0, 0, 0)
-
     
     # IK and hardware output
-    
 
     def _send_joint_angles(self) -> bool:
         """
@@ -264,10 +260,8 @@ class HexapodController:
         if result:
             self.current_joints = joint_values  # sync only when hardware accepted
         return result
-
     
     # Main update
-    
 
     def update(self, dt: float) -> bool:
         """
@@ -297,6 +291,14 @@ class HexapodController:
         if self.state is State.IDLE:
             return self._update_idle(dt)
 
+        # TODO whenever we go from IDLE to WALK the legs change abruptly
+        #   from neutral stance (IDLE) to the position they have at the
+        #   beginning of their gait sequence (phase=0). We should provide
+        #   a mini transition state that brings the legs there, at least
+        #   the ones that should swing at the beginning (avoid dragging
+        #   legs on the ground when readying to walk and start the gait
+        #   sequence)
+
         if self.state is State.WALK:
             return self._update_walk(dt)
 
@@ -305,9 +307,7 @@ class HexapodController:
 
         return False
 
-    
     # Per-state updates
-    
 
     def _update_idle(self, dt: float) -> bool:
         """Interpolate body pose and individually commanded leg positions."""
@@ -327,6 +327,12 @@ class HexapodController:
                   Automatically transitions to IDLE when velocity is zero and
                   the gait has fully settled.
         """
+
+        # TODO provide a better way to transition from current velocity
+        #   to another e.g. we are walking with a given linear/angular velocity
+        #   and the user suddenly changes velocity; we should provide a smooth
+        #   transition
+
         self._interpolate_body_pose(dt)
         self._update_odometry(dt)
 
@@ -339,6 +345,7 @@ class HexapodController:
             return self._send_joint_angles()
 
         if self._gait_is_active():
+            # Actual gait
             positions = self.gait.update(dt, self.linear_velocity, self.angular_velocity)
             self.leg_positions = positions
             self.target_leg_positions = {k: v.copy() for k, v in positions.items()}
@@ -350,9 +357,7 @@ class HexapodController:
 
         return self._send_joint_angles()
 
-    
     # Step sequencer
-    
 
     def _update_sequencer(self, dt: float) -> bool:
         """Run the current step; advance when it returns True."""
@@ -368,9 +373,7 @@ class HexapodController:
 
         return True
 
-    
     # Sequencer steps
-    
 
     def _step_finish_gait(self, dt: float) -> bool:
         """
@@ -762,6 +765,7 @@ class HexapodController:
 
         # TODO analyze better this method: no boundaries are set on the final position of the body.
         #   we could call the same method over and over again with small increments and it will work
+        #   -> provide a better way to bound body displacement
 
         x_range = self.config['safety'].get('x_range', (-50, 50))
         y_range = self.config['safety'].get('y_range', (-50, 50))

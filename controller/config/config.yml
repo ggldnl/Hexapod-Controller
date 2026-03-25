@@ -102,10 +102,17 @@ gaits:
     stride_length: 60.0 # mm
     overlap: 0.0
 
-# Control parameters
-control:
+# Serial
+serial:
 
-  update_rate: 50         # Hz
+  port: '/dev/ttyAMA0'
+  baud: 115200
+
+# Rate parameters
+rate:
+
+  led_update_rate: 2          # Hz
+  controller_update_rate: 50  # Hz
 
 # Safety limits
 safety:
