@@ -47,7 +47,7 @@ kinematics:
 
 # Hardware parameters
 hardware:
-  
+
   # Servo pin assignments: [coxa, femur, tibia]
   pins:
     front_right:  [0, 1, 2]
@@ -86,8 +86,8 @@ gaits:
 
   tripod:
     duty_factor: 0.5
-    step_height: 30.0   # mm
-    stride_length: 100.0 # mm
+    step_height: 50.0   # mm
+    stride_length: 300.0 # mm
     overlap: 0.0
 
   wave:
@@ -120,7 +120,7 @@ safety:
   voltage_min: 5.0    # V
   current_max: 12.0   # A
 
-  lin_vel_max: 250              # mm/s
+  lin_vel_max: 300              # mm/s
   ang_vel_max: 60               # deg/s
   velocity_smoothing_tau: 0.1   # s
 
