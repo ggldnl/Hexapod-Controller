@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser.add_argument('--gait', '-g', type=str, default='ripple',
                         choices=['tripod', 'wave', 'ripple'],
                         help='Initial gait pattern. Default is ripple.')
-    parser.add_argument('--vx', '-x', type=float, default=125.0,
+    parser.add_argument('--vx', '-x', type=float, default=200.0,
                         help='Forward velocity (mm/s).')
     parser.add_argument('--vy', '-y', type=float, default=0.0,
                         help='Strafe velocity (mm/s).')
@@ -41,7 +41,9 @@ if __name__ == '__main__':
         config = yaml.safe_load(f)
 
     # Create kernel
-    kernel = Kernel(port=args.port, baud=args.baud)     # Hardware communication
+    port = config['serial'].get('port', args.port)
+    baud = config['serial'].get('baud', args.baud)
+    kernel = Kernel(port=port, baud=baud)               # Hardware communication
     interface = Interface(kernel, config)               # Interface for servo mapping, limits, ...
 
     # Create controller
@@ -60,9 +62,9 @@ if __name__ == '__main__':
         t2 = 7.0    # reset body orientation
         t3 = 8.0    # set linear velocity
         t4 = 12.0   # set angular velocity
-        t5 = 35.0   # stop
-        t6 = 37.0   # shutdown
-        t7 = 40.0   # exit loop
+        t5 = 18.0   # stop
+        t6 = 22.0   # shutdown
+        t7 = 25.0   # exit loop
 
         last_frame = time.perf_counter()
         while True:
