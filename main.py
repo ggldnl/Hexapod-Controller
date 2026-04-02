@@ -24,8 +24,6 @@ if __name__ == '__main__':
                         help='Strafe velocity (mm/s).')
     parser.add_argument('--vw', '-w', type=float, default=0.0,
                         help='Yaw velocity (deg/s).')
-    parser.add_argument('--controller-rate', '-c', type=float, default=20,
-                        help="Controller update rate in Hz. Default is 20 Hz.")
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='Whether or not to use the logger (increased overhead).')
     parser.add_argument('--log-file', '-l', default=None,
@@ -52,7 +50,8 @@ if __name__ == '__main__':
 
     try:
 
-        controller_dt = 1. / args.controller_rate
+        controller_rate = config['rate'].get('controller_update_rate', 20)
+        controller_dt = 1. / controller_rate
         controller_time_accumulator = 0.0
         t = 0.0
 
