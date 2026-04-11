@@ -85,21 +85,21 @@ gaits:
   # duty_factor represents the fraction of a gait cycle a foot remains on the ground
 
   tripod:
-    duty_factor: 0.75
-    step_height: 100.0   # mm
-    stride_length: 120.0 # mm
+    duty_factor: 0.5
+    step_height: 60.0   # mm
+    stride_length: 80.0 # mm
     overlap: 0.0
 
   wave:
     duty_factor: 0.8333  # a slow, cautious gait can have higher duty factor
-    step_height: 40.0   # mm
-    stride_length: 60.0 # mm
+    step_height: 60.0   # mm
+    stride_length: 80.0 # mm
     overlap: 0.0
 
   ripple:
     duty_factor: 0.67
-    step_height: 40.0   # mm
-    stride_length: 60.0 # mm
+    step_height: 60.0   # mm
+    stride_length: 80.0 # mm
     overlap: 0.0
 
 # Serial

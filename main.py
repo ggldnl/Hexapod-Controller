@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser.add_argument('--gait', '-g', type=str, default='tripod',
                         choices=['tripod', 'wave', 'ripple'],
                         help='Initial gait pattern. Default is tripod.')
-    parser.add_argument('--vx', '-x', type=float, default=50.0,
+    parser.add_argument('--vx', '-x', type=float, default=100.0,
                         help='Forward velocity (mm/s).')
     parser.add_argument('--vy', '-y', type=float, default=0.0,
                         help='Strafe velocity (mm/s).')
