@@ -127,7 +127,7 @@ safety:
   body_lin_vel_max: 50  # mm/s
   body_ang_vel_max: 30  # deg/s
 
-  joint_vel_max: 150  # deg/s
+  joint_vel_max: 200  # deg/s
 
   # Expressed in joint space
   coxa_range: [-90, 90]
