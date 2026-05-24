@@ -52,7 +52,6 @@ class GaitGenerator:
         # Used to keep phase advancing while a swing is still completing.
         self._last_phase_rate = 1.0 / self.cycle_time
         self._finishing_swing = False  # true while completing a residual swing after v=0
-        self._finishing_swing_targets = set()  # legs that were airborne when v dropped to zero
 
     # Properties
 
@@ -219,13 +218,13 @@ class GaitGenerator:
         """
         omega_rad = np.radians(angular_velocity)
 
-        # Effective speed: geometric (Euclidean) combination of linear speed and the
-        # tangential equivalent of yaw rate at stance radius. Using hypot instead of
-        # the arithmetic sum prevents phase rate from being overestimated when both
-        # linear and angular velocities are non-zero.
+        # Effective speed: linear speed plus tangential equivalent of yaw rate at stance radius.
+        # This governs how fast the phase advances so both contribute equally to stride pacing.
         linear_speed = np.linalg.norm(velocity[:2])
         angular_speed_equiv = abs(omega_rad) * self.stance_radius
-        effective_speed = np.hypot(linear_speed, angular_speed_equiv)
+        effective_speed = linear_speed + angular_speed_equiv
+
+        any_in_swing = any(self.is_leg_in_swing(leg, self.phase) for leg in self.leg_names)
 
         if effective_speed > 1e-3:
             # Normal walking: phase advances proportional to speed.
@@ -233,7 +232,6 @@ class GaitGenerator:
             # At the reference speed (stride_length / (duty_factor * cycle_time)) this
             # equals 1/cycle_time, which is the natural unscaled rate.
             self._finishing_swing = False
-            self._finishing_swing_targets = set()
             phase_rate = effective_speed * self.duty_factor / self.stride_length
             self._last_phase_rate = phase_rate
             self.phase = (self.phase + phase_rate * dt) % 1.0
@@ -243,22 +241,14 @@ class GaitGenerator:
             T_stance = self.stride_length / effective_speed
             stride_vectors = self._compute_stride_vectors(velocity, omega_rad, T_stance)
 
-        elif any(self.is_leg_in_swing(leg, self.phase) for leg in self.leg_names) or self._finishing_swing:
-            # Velocity dropped to zero. On first entry, snapshot which legs are currently
-            # airborne as the finish targets. Advance phase at the last known rate until
-            # every one of those legs has touched down, then freeze.
-            if not self._finishing_swing:
-                self._finishing_swing_targets = {
-                    leg for leg in self.leg_names if self.is_leg_in_swing(leg, self.phase)
-                }
-                self._finishing_swing = True
+        elif any_in_swing:
+            # Velocity dropped to zero but at least one leg is still airborne.
+            # Keep advancing phase at the last known rate so the swing completes
+            # naturally. A zero stride_vector makes compute_foot_position arc the
+            # swing leg back to neutral XY with the standard parabolic height.
+            self._finishing_swing = True
             self.phase = (self.phase + self._last_phase_rate * dt) % 1.0
             stride_vectors = {leg: np.zeros(3) for leg in self.leg_names}
-            # Stop as soon as every originally-airborne leg has landed.
-            if not any(self.is_leg_in_swing(leg, self.phase) for leg in self._finishing_swing_targets):
-                self._finishing_swing = False
-                self._finishing_swing_targets = set()
-                return {leg: self.neutral_stance_positions[leg] for leg in self.leg_names}
 
         else:
             # Fully stopped and all legs on the ground: freeze phase, return neutral.
@@ -347,5 +337,4 @@ class GaitGenerator:
         """Reset phase and finishing state. Call before starting a fresh walk sequence."""
         self.phase = 0.0
         self._finishing_swing = False
-        self._finishing_swing_targets = set()
         self._last_phase_rate = 1.0 / self.cycle_time

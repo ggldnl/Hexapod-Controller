@@ -602,7 +602,7 @@ class HexapodController:
         """
         linear_speed = np.linalg.norm(self._smoothed_linear_velocity[:2])
         angular_speed_equiv = abs(np.radians(self._smoothed_angular_velocity)) * self.gait.stance_radius
-        return float(np.hypot(linear_speed, angular_speed_equiv))
+        return linear_speed + angular_speed_equiv
 
     def _gait_is_active(self) -> bool:
         """True when the gait generator is driving leg positions."""
