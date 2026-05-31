@@ -48,6 +48,15 @@ class GaitGenerator:
 
         self.neutral_stance_positions = self._compute_neutral_stance()
 
+        # Average distance from body centre to each foot contact point.
+        # Used for angular_speed_equiv instead of stance_radius, which is the
+        # leg extension from the mount point and is ~1.6x smaller than the
+        # actual body-to-foot distance.
+        self._body_radius = float(np.mean([
+            np.linalg.norm(pos[:2])
+            for pos in self.neutral_stance_positions.values()
+        ]))
+
         # Phase rate saved from the last non-zero velocity tick.
         # Used to keep phase advancing while a swing is still completing.
         self._last_phase_rate = 1.0 / self.cycle_time
@@ -79,6 +88,16 @@ class GaitGenerator:
     @property
     def stance_radius(self):
         return self.config['gaits'].get('stance_radius', 150.0)
+
+    @property
+    def body_radius(self) -> float:
+        """Average distance from body centre to foot contact points (mm)."""
+        return self._body_radius
+
+    @property
+    def max_phase_rate(self) -> float:
+        """Upper bound on gait phase rate (Hz). Prevents too-short swing phases."""
+        return self.config['gaits'].get('max_phase_rate', float('inf'))
 
     # Gait selection
 
@@ -218,10 +237,12 @@ class GaitGenerator:
         """
         omega_rad = np.radians(angular_velocity)
 
-        # Effective speed: linear speed plus tangential equivalent of yaw rate at stance radius.
-        # This governs how fast the phase advances so both contribute equally to stride pacing.
+        # Effective speed: linear speed plus tangential equivalent of yaw rate.
+        # Uses body_radius (average body-center-to-foot distance) rather than
+        # stance_radius (per-leg extension from mount), which is ~1.6x smaller
+        # and would leave stride vectors 31–64% overextended during turning.
         linear_speed = np.linalg.norm(velocity[:2])
-        angular_speed_equiv = abs(omega_rad) * self.stance_radius
+        angular_speed_equiv = abs(omega_rad) * self._body_radius
         effective_speed = linear_speed + angular_speed_equiv
 
         any_in_swing = any(self.is_leg_in_swing(leg, self.phase) for leg in self.leg_names)
@@ -233,6 +254,7 @@ class GaitGenerator:
             # equals 1/cycle_time, which is the natural unscaled rate.
             self._finishing_swing = False
             phase_rate = effective_speed * self.duty_factor / self.stride_length
+            phase_rate = min(phase_rate, self.max_phase_rate)
             self._last_phase_rate = phase_rate
             self.phase = (self.phase + phase_rate * dt) % 1.0
 

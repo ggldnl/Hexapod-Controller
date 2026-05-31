@@ -597,11 +597,11 @@ class HexapodController:
     def _effective_speed(self) -> float:
         """
         Scalar speed used to decide whether the gait is active.
-        Combines linear speed with the tangential equivalent of yaw rate
-        at the nominal stance radius, matching the formula in GaitGenerator.
+        Mirrors the formula in GaitGenerator.update() so WALK->IDLE transitions
+        are consistent with when the gait generator would actually stop.
         """
         linear_speed = np.linalg.norm(self._smoothed_linear_velocity[:2])
-        angular_speed_equiv = abs(np.radians(self._smoothed_angular_velocity)) * self.gait.stance_radius
+        angular_speed_equiv = abs(np.radians(self._smoothed_angular_velocity)) * self.gait.body_radius
         return linear_speed + angular_speed_equiv
 
     def _gait_is_active(self) -> bool:
@@ -620,7 +620,7 @@ class HexapodController:
         # Check RAW velocities (not smoothed) to detect if a command was issued.
         # Smoothed velocities are zero at startup.
         linear_speed = np.linalg.norm(self.linear_velocity[:2])
-        angular_speed_equiv = abs(np.radians(self.angular_velocity)) * self.gait.stance_radius
+        angular_speed_equiv = abs(np.radians(self.angular_velocity)) * self.gait.body_radius
         if linear_speed + angular_speed_equiv < 1e-3:
             return
 
