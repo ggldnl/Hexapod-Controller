@@ -584,9 +584,15 @@ class HexapodController:
             forward unit vector in world  = ( cos θ,  sin θ )
             rightward unit vector in world = ( sin θ, −cos θ )
         """
-        vx  = self._smoothed_linear_velocity[0]
-        vy  = self._smoothed_linear_velocity[1]
-        wz  = np.radians(self._smoothed_angular_velocity)
+        # Integrate the gait's *achieved* twist (post-clamp), not the commanded
+        # velocity: when a fast command saturates the reachable stride the gait
+        # scales the twist down, so commanded != actual. Using the achieved twist
+        # keeps dead-reckoning honest (foot slip aside) and removes the historical
+        # over-report during capped combined maneuvers.
+        achieved_v, achieved_w = self.gait.get_achieved_twist()
+        vx  = achieved_v[0]
+        vy  = achieved_v[1]
+        wz  = np.radians(achieved_w)
 
         self.odom_x += (vx * np.cos(self.odom_yaw) + vy * np.sin(self.odom_yaw)) * dt
         self.odom_y += (vx * np.sin(self.odom_yaw) - vy * np.cos(self.odom_yaw)) * dt
@@ -596,9 +602,10 @@ class HexapodController:
 
     def _effective_speed(self) -> float:
         """
-        Scalar speed used to decide whether the gait is active.
-        Mirrors the formula in GaitGenerator.update() so WALK->IDLE transitions
-        are consistent with when the gait generator would actually stop.
+        Scalar motion magnitude used to decide whether the gait is active.
+        Non-zero whenever there is any commanded linear or angular motion, which is
+        exactly when GaitGenerator.update() drives the legs (it freezes only when all
+        per-leg foot velocities are ~0), so WALK->IDLE transitions stay consistent.
         """
         linear_speed = np.linalg.norm(self._smoothed_linear_velocity[:2])
         angular_speed_equiv = abs(np.radians(self._smoothed_angular_velocity)) * self.gait.body_radius
