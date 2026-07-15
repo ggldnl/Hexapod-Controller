@@ -72,6 +72,7 @@ class Opcode(IntEnum):
     GET_VOLTAGE = 0x41
     GET_CURRENT = 0x42
     GET_JOINTS = 0x43
+    GET_BODY_POSE = 0x44
     # board-initiated
     ERROR = 0xEE
 
@@ -95,6 +96,7 @@ FMT_TELEMETRY = "<Bfffff"       # state, odom_x, odom_y, odom_yaw(deg), voltage,
 FMT_VOLTAGE = "<f"
 FMT_CURRENT = "<f"
 FMT_JOINTS = "<18f"             # servo-space deg, leg-major (leg*3 + joint)
+FMT_BODY_POSE = "<ffffff"       # x, y, z (mm, z rel. standing); roll, pitch, yaw (deg)
 FMT_ERROR = "<B"                # status
 FMT_ACK = "<B"                  # status (OK on success) — jog / provisioning reply
 
@@ -125,3 +127,23 @@ class Telemetry:
 def unpack_telemetry(payload: bytes) -> Telemetry:
     st, ox, oy, oyaw, v, c = struct.unpack(FMT_TELEMETRY, payload)
     return Telemetry(State(st), ox, oy, oyaw, v, c)
+
+
+@dataclass
+class BodyPose:
+    x: float      # mm, body shift +x (forward)
+    y: float      # mm, body shift +y (left)
+    z: float      # mm, height offset relative to standing height
+    roll: float   # deg
+    pitch: float  # deg
+    yaw: float    # deg
+
+    @property
+    def height(self) -> float:
+        """Body-height offset from standing (mm). Same reference 
+        as set_body_pose's z (0 == standing height)."""
+        return self.z
+
+
+def unpack_body_pose(payload: bytes) -> BodyPose:
+    return BodyPose(*struct.unpack(FMT_BODY_POSE, payload))

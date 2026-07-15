@@ -24,6 +24,7 @@ from __future__ import annotations
 import struct
 import time
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Union
 
@@ -31,7 +32,7 @@ import yaml
 
 from . import protocol as P
 from .framing import FrameParser, encode_frame
-from .protocol import GaitId, LedMode, Opcode, Telemetry
+from .protocol import BodyPose, GaitId, LedMode, Opcode, Telemetry
 from .transport import Transport
 
 # cfg::Leg / cfg::Joint / proto::GaitId order on the wire (leg-major flattening)
@@ -53,6 +54,17 @@ DEFAULT_CONFIG = Path(__file__).resolve().parent / "config" / "config.yml"
 ConfigLike = Union[Mapping, str, Path, None]
 
 
+@dataclass
+class Velocity:
+    vx: float  # mm/s, body +x (forward)
+    vy: float  # mm/s, body +y (left)
+    wz: float  # deg/s, yaw (+ CCW)
+
+
+def _clamp(x: float, lo: float, hi: float) -> float:
+    return lo if x < lo else hi if x > hi else x
+
+
 class HexapodError(RuntimeError):
     """The board replied with an Error frame."""
 
@@ -68,6 +80,13 @@ class HexapodClient:
         self._t = transport
         self._timeout = timeout
         self._parser = FrameParser()
+        # Host-side buffers for open-loop state the board adopts as commanded, so
+        # get_velocity()/get_gait() need no round-trip. The velocity clamps are
+        # learned at provision() so the buffer mirrors the board's own clamp.
+        self._vx = self._vy = self._wz = 0.0
+        self._gait = GaitId.TRIPOD  # firmware default (gait::GaitId TRIPOD)
+        self._lin_vel_max: Optional[float] = None
+        self._ang_vel_max: Optional[float] = None
 
     def close(self) -> None:
         self._t.close()
@@ -165,6 +184,10 @@ class HexapodClient:
             number("safety.current_max"),
             number("safety.voltage_min"),
         ]
+        # Cache the velocity clamps so set_velocity can mirror the board's clamp
+        # when buffering the commanded value (see get_velocity)
+        self._lin_vel_max = limits[0]
+        self._ang_vel_max = limits[1]
 
         body_pose = [
             v
@@ -223,19 +246,30 @@ class HexapodClient:
     # Fire-and-forget
 
     def enable(self) -> None:
+        self._vx = self._vy = self._wz = 0.0  # board resets motion on enable
         self._send(Opcode.ENABLE)
 
     def shutdown(self) -> None:
+        self._vx = self._vy = self._wz = 0.0  # board zeros velocity on sit-down
         self._send(Opcode.SHUTDOWN)
 
     def stop(self) -> None:
+        self._vx = self._vy = self._wz = 0.0
         self._send(Opcode.STOP)
 
     def heartbeat(self) -> None:
         self._send(Opcode.HEARTBEAT)
 
     def set_velocity(self, vx: float, vy: float, wz: float) -> None:
-        """vx, vy in mm/s (body frame, +x fwd / +y left); wz in deg/s (+ CCW)"""
+        """vx, vy in mm/s (body frame, +x fwd / +y left); wz in deg/s (+ CCW).
+        Clamped to the provisioned limits and buffered so get_velocity() reads it
+        back without a round-trip (open-loop: the command is the setpoint)."""
+        if self._lin_vel_max is not None:
+            vx = _clamp(vx, -self._lin_vel_max, self._lin_vel_max)
+            vy = _clamp(vy, -self._lin_vel_max, self._lin_vel_max)
+        if self._ang_vel_max is not None:
+            wz = _clamp(wz, -self._ang_vel_max, self._ang_vel_max)
+        self._vx, self._vy, self._wz = vx, vy, wz
         self._send(Opcode.SET_VELOCITY, struct.pack(P.FMT_SET_VELOCITY, vx, vy, wz))
 
     def set_body_pose(
@@ -255,6 +289,7 @@ class HexapodClient:
         )
 
     def set_gait(self, gait: GaitId) -> None:
+        self._gait = GaitId(gait)  # buffered; board adopts it as commanded
         self._send(Opcode.SET_GAIT, struct.pack(P.FMT_SET_GAIT, int(gait)))
 
     def set_led(
@@ -277,6 +312,27 @@ class HexapodClient:
 
     def get_joints(self) -> List[float]:
         return list(struct.unpack(P.FMT_JOINTS, self._request(Opcode.GET_JOINTS)))
+
+    def get_body_pose(self) -> BodyPose:
+        """Query the board's LIVE body pose: the interpolated value as it slews
+        toward the last set_body_pose target, not the target itself. Same units
+        and reference as set_body_pose (x/y/z mm, z relative to standing height;
+        roll/pitch/yaw deg). Read .height for the z offset."""
+        return P.unpack_body_pose(self._request(Opcode.GET_BODY_POSE))
+
+    # Host-buffered state (no round-trip). The board obeys these commands
+    # instantly and open-loop, so the last command IS the current setpoint.
+
+    def get_velocity(self) -> Velocity:
+        """Last commanded velocity (mm/s, mm/s, deg/s), clamped to the provisioned
+        limits. Does NOT reflect an autonomous board-side stop (comms watchdog or
+        a fault) — read get_telemetry().state if you need to confirm the board is
+        still energized and walking."""
+        return Velocity(self._vx, self._vy, self._wz)
+
+    def get_gait(self) -> GaitId:
+        """Last commanded gait (buffered on the host)."""
+        return self._gait
 
     # Internals
 

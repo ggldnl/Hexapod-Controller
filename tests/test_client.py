@@ -6,7 +6,8 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from hexapod import (  # noqa: E402
-    GaitId, HexapodClient, HexapodError, LedMode, Opcode, State,
+    GaitId, HexapodClient, HexapodError, LedMode, Opcode, State, Status,
+    Velocity,
 )
 from hexapod.framing import FrameParser, encode_frame  # noqa: E402
 from hexapod.transport import Transport  # noqa: E402
@@ -47,6 +48,11 @@ class FakeFirmware(Transport):
                                             12.5, -3.0, 45.0, 8.1, 2.2))
         elif opcode == Opcode.GET_JOINTS:
             self._reply(opcode, struct.pack("<18f", *([0.0] * 18)))
+        elif opcode == Opcode.GET_BODY_POSE:
+            self._reply(opcode, struct.pack("<ffffff", 1.0, 2.0, -5.0, 3.0, 4.0, 6.0))
+        elif opcode == Opcode.JOG_SERVO or 0x10 <= opcode <= 0x19:
+            self.last[opcode] = payload
+            self._reply(opcode, bytes([int(Status.OK)]))  # ack provisioning / jog
         else:
             self.last[opcode] = payload  # fire-and-forget
 
@@ -82,6 +88,39 @@ def test_joints_query():
     c = HexapodClient(FakeFirmware())
     j = c.get_joints()
     assert len(j) == 18
+
+
+def test_body_pose_query():
+    c = HexapodClient(FakeFirmware())
+    p = c.get_body_pose()
+    assert abs(p.z - (-5.0)) < 1e-4
+    assert abs(p.height - (-5.0)) < 1e-4  # .height convenience == z offset
+    assert abs(p.roll - 3.0) < 1e-4 and abs(p.yaw - 6.0) < 1e-4
+
+
+def test_velocity_buffered_no_roundtrip():
+    fw = FakeFirmware()
+    c = HexapodClient(fw)
+    c.set_velocity(10.0, -20.0, 5.0)
+    assert c.get_velocity() == Velocity(10.0, -20.0, 5.0)
+    c.stop()  # board zeros velocity -> buffer follows
+    assert c.get_velocity() == Velocity(0.0, 0.0, 0.0)
+
+
+def test_velocity_clamped_to_provisioned_limits():
+    c = HexapodClient(FakeFirmware())
+    c.provision()  # packaged default config supplies the clamps
+    c.set_velocity(1e6, 0.0, 1e6)
+    v = c.get_velocity()
+    assert abs(v.vx - c._lin_vel_max) < 1e-4  # clamped to lin_vel_max
+    assert abs(v.wz - c._ang_vel_max) < 1e-4  # clamped to ang_vel_max
+
+
+def test_gait_buffered():
+    c = HexapodClient(FakeFirmware())
+    assert c.get_gait() == GaitId.TRIPOD  # firmware default
+    c.set_gait(GaitId.WAVE)
+    assert c.get_gait() == GaitId.WAVE
 
 
 def test_error_reply_raises():
