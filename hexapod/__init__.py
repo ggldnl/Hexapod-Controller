@@ -1,4 +1,4 @@
-"""Pi-side controller for the Hexapod-Reimagined firmware.
+"""Pi-side controller for the Hexapod firmware.
 
 Mirrors the wire protocol in Hexapod-Firmware/src/protocol.hpp and streams
 high-level setpoints to the board, which runs the whole control loop.
