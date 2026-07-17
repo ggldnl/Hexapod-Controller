@@ -76,20 +76,22 @@ We need to enable the serial interface to let the Pi communicate with the Servo2
 
 ### Install
 
-The controller is a standard Python package. Clone the repo, create a conda environment and install it. Use the `serial` extra to pull in pyserial for talking to real hardware:
+The controller is a standard Python package. Clone the repo, create a conda environment and install it. Two optional extras are available: `serial` pulls in pyserial for talking to real hardware, and `calibrate` pulls in ruamel.yaml for the calibration tool. Install both to get everything:
 
 ```bash
 git clone https://github.com/ggldnl/Hexapod-Controller.git
 cd Hexapod-Controller
 conda create -n hexapod python=3.11
 conda activate hexapod
-pip install ".[serial]"
+pip install ".[serial,calibrate]"
 ```
+
+The runtime client itself needs neither extra: `pip install .` is enough to import `hexapod` and drive the board, as long as the transport you build is not the real serial one.
 
 For development, install it in editable mode instead so your changes are picked up without reinstalling:
 
 ```bash
-pip install -e ".[serial]"
+pip install -e ".[serial,calibrate]"
 ```
 
 The robot configuration in `hexapod/config/config.yml` ships with the package, so `connect()` works out of the box against the packaged default. Point it at your own file whenever you need to.
@@ -128,7 +130,7 @@ In simulation the same client is driven through an in-process transport to the h
 
 ## 🎛️ Calibration
 
-`calibrate.py` is an offline tool that jogs each servo to find its min, center and max pulse widths and writes the result back into `config.yml` under `hardware.pulses`. Run it with the board connected and the robot de-energized:
+`calibrate.py` is an offline tool that jogs each servo to find its min, center and max pulse widths and writes the result back into `config.yml` under `hardware.pulses`. It writes with ruamel.yaml to preserve the file's comments and layout, so it needs the `serial` and `calibrate` extras installed (see the setup above). Run it with the board connected and the robot de-energized:
 
 ```bash
 python calibrate.py                     # uses the packaged config.yml
