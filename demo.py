@@ -12,25 +12,6 @@ from hexapod import GaitId, connect
 
 GAITS = {"tripod": GaitId.TRIPOD, "wave": GaitId.WAVE, "ripple": GaitId.RIPPLE}
 
-# Seconds to keep feeding the watchdog after a shutdown so the board can finish 
-# its sit-down before we drop the link
-SIT_GRACE_S = 2.5
-
-
-def graceful_stop(bot, control_rate):
-    # Stop motion, sit the robot down and keep the watchdog fed until it settles
-    control_dt = 1.0 / control_rate
-    try:
-        bot.set_velocity(0.0, 0.0, 0.0)
-        bot.shutdown()
-        elapsed = 0.0
-        while elapsed < SIT_GRACE_S:
-            bot.heartbeat()
-            time.sleep(control_dt)
-            elapsed += control_dt
-    except Exception:
-        pass
-
 
 def main():
 
@@ -89,8 +70,9 @@ def main():
             last += control_dt               # Pace to wall clock
             time.sleep(max(0.0, last - time.perf_counter()))
     except KeyboardInterrupt:
+        # The board sits down on its own once we stop heartbeating, we just ask for it now so it lowers immediately
         print("\ninterrupted, sitting the robot down")
-        graceful_stop(bot, args.control_rate)
+        bot.shutdown()
     finally:
         try:
             print("final telemetry:", bot.get_telemetry())
