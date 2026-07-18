@@ -366,13 +366,15 @@ class HexapodClient:
 
 
 def connect(
-    config: ConfigLike = None, port: Optional[str] = None, baud: int = 921600, 
-    provision: bool = True
+    config: ConfigLike = None, port: Optional[str] = None, baud: int = 921600,
+    provision: bool = True, timeout: float = 0.2
 ) -> HexapodClient:
     """Open the serial link and provision the board from the config.
 
     config is a mapping, a path to config.yml, or None for the packaged
     default; port overrides serial.port. `serial` is host-only and never sent.
+    timeout is the per-reply wait (s): a lost reply costs this much before the
+    query gives up, so keep it small relative to your polling period.
     """
     from .transport import SerialTransport
 
@@ -385,7 +387,7 @@ def connect(
     serial = cfg.get("serial", {}) if isinstance(cfg, Mapping) else {}
     port = port or serial.get("port")
     baud = baud or int(serial.get("baud", 921600))
-    client = HexapodClient(SerialTransport(port, baud))
+    client = HexapodClient(SerialTransport(port, baud), timeout=timeout)
     if provision:
         client.provision(cfg)
     return client
