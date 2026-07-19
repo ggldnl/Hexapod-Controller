@@ -387,7 +387,7 @@ def connect(
     serial = cfg.get("serial", {}) if isinstance(cfg, Mapping) else {}
     port = port or serial.get("port")
     baud = baud or int(serial.get("baud", 921600))
-    client = HexapodClient(SerialTransport(port, baud), timeout=timeout)
+    client = HexapodClient(SerialTransport(port, baud, timeout=timeout), timeout=timeout)
     if provision:
         client.provision(cfg)
     return client

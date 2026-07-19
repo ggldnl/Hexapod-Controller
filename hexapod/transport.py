@@ -34,7 +34,14 @@ class SerialTransport(Transport):
         self._ser.write(data)
 
     def read(self, n: int) -> bytes:
-        return self._ser.read(n)
+        # pyserial's read(n) returns early only once it has exactly n bytes, so
+        # asking for more than the board sent burns the whole timeout waiting for
+        # bytes that will never come. Take what is already buffered instead, and
+        # block for a single byte only when the buffer is empty
+        waiting = self._ser.in_waiting
+        if waiting:
+            return self._ser.read(min(n, waiting))
+        return self._ser.read(1)
 
     def close(self) -> None:
         self._ser.close()
