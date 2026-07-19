@@ -80,6 +80,10 @@ class HexapodClient:
         self._t = transport
         self._timeout = timeout
         self._parser = FrameParser()
+        # Bytes pulled from the transport but not yet parsed. Reading a port is
+        # destructive, so anything a request over-reads has to live here until
+        # the next one consumes it, or the frame behind it is lost
+        self._rx = bytearray()
         # Host-side buffers for open-loop state the board adopts as commanded, so
         # get_velocity()/get_gait() need no round-trip. The velocity clamps are
         # learned at provision() so the buffer mirrors the board's own clamp.
@@ -348,21 +352,35 @@ class HexapodClient:
     def _request(self, opcode: Opcode, payload: bytes = b"") -> bytes:
         self._t.write(encode_frame(int(opcode), payload))
         deadline = time.monotonic() + self._timeout
-        while time.monotonic() < deadline:
-            chunk = self._t.read(64)
-            if not chunk:
-                continue
-            for b in chunk:
-                if not self._parser.feed(b):
-                    continue
-                op, data = self._parser.opcode, self._parser.payload
-                if op == int(Opcode.ERROR):
-                    status = P.Status(data[0]) if data else P.Status.REJECTED
-                    raise HexapodError(f"board error: {status.name}")
-                if op == int(opcode):
-                    return data
-                # unexpected opcode, ignore and keep reading
-        raise TimeoutError(f"no reply to {Opcode(opcode).name}")
+        want = int(opcode)
+
+        while True:
+            # Parse what is already buffered before going back to the port, so a
+            # frame that shared a read with an earlier reply still gets seen
+            i = 0
+            try:
+                while i < len(self._rx):
+                    b = self._rx[i]
+                    i += 1
+                    if not self._parser.feed(b):
+                        continue
+                    op, data = self._parser.opcode, self._parser.payload
+                    if op == int(Opcode.ERROR):
+                        status = P.Status(data[0]) if data else P.Status.REJECTED
+                        raise HexapodError(f"board error: {status.name}")
+                    if op == want:
+                        return data
+                    # A frame we did not ask for, usually a late reply to an
+                    # earlier query: drop it and keep parsing
+            finally:
+                # Runs on every exit, so the bytes behind a returned or failed
+                # frame are kept rather than dropped with the stack frame
+                del self._rx[:i]
+
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f"no reply to {Opcode(opcode).name}")
+            # 256 covers two maximum-size frames, so a burst arrives in one call
+            self._rx += self._t.read(256)
 
 
 def connect(

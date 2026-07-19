@@ -148,6 +148,67 @@ def test_timeout_when_silent():
         assert False, "expected TimeoutError"
 
 
+class Preloaded(Transport):
+    """A port with bytes already waiting. `chunk` caps how many come back per
+    read, so a frame can be made to straddle two reads."""
+
+    def __init__(self, data: bytes, chunk: int = 256):
+        self._out = bytearray(data)
+        self._chunk = chunk
+
+    def write(self, data: bytes) -> None:
+        pass
+
+    def read(self, n: int) -> bytes:
+        out = bytes(self._out[:min(n, self._chunk)])
+        del self._out[:len(out)]
+        return out
+
+
+def _telemetry_frame(state=State.WALK, voltage=8.1):
+    return encode_frame(int(Opcode.GET_TELEMETRY),
+                        struct.pack("<Bfffff", int(state), 12.5, -3.0, 45.0, voltage, 2.2))
+
+
+def _joints_frame(values):
+    return encode_frame(int(Opcode.GET_JOINTS), struct.pack("<18f", *values))
+
+
+def test_frame_sharing_a_read_is_not_lost():
+    # Two replies sitting in the port together, as happens when one arrives late
+    # and the next query goes out before it has been consumed. Reading is
+    # destructive, so the joints frame is only ever seen by this first read
+    values = [float(i) for i in range(18)]
+    c = HexapodClient(Preloaded(_telemetry_frame() + _joints_frame(values)), timeout=0.05)
+    assert c.get_telemetry().state == State.WALK
+    assert c.get_joints() == values
+
+
+def test_unwanted_frame_ahead_of_the_reply_is_skipped():
+    stale = encode_frame(int(Opcode.GET_VOLTAGE), struct.pack("<f", 6.0))
+    c = HexapodClient(Preloaded(stale + _telemetry_frame(voltage=7.7)), timeout=0.05)
+    t = c.get_telemetry()
+    assert abs(t.voltage - 7.7) < 1e-4  # the telemetry frame, not the stale one
+
+
+def test_frame_split_across_reads():
+    values = [float(i) for i in range(18)]
+    c = HexapodClient(Preloaded(_joints_frame(values), chunk=7), timeout=0.5)
+    assert c.get_joints() == values  # 77 bytes reassembled from 7-byte reads
+
+
+def test_error_frame_keeps_the_bytes_behind_it():
+    err = encode_frame(int(Opcode.ERROR), bytes([int(Status.BAD_OPCODE)]))
+    c = HexapodClient(Preloaded(err + _telemetry_frame()), timeout=0.05)
+    try:
+        c.get_telemetry()
+    except HexapodError:
+        pass
+    else:
+        assert False, "expected HexapodError"
+    assert c.get_telemetry().state == State.WALK  # survived the raise
+
+
 def _run():
     fails = 0
     for name, fn in sorted(globals().items()):
