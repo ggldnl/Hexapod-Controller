@@ -153,6 +153,7 @@ class HexapodClient:
             number("kinematics.legs.coxa"),
             number("kinematics.legs.femur"),
             number("kinematics.legs.tibia"),
+            number("kinematics.legs.coxa_offset"),
             number("kinematics.standing_height"),
             number("kinematics.stance_radius"),
             number("gaits.cycle_time"),
@@ -162,7 +163,9 @@ class HexapodClient:
         for leg in LEGS:
             pos = vec(f"kinematics.mounts.{leg}.position", 3)
             ori = vec(f"kinematics.mounts.{leg}.orientation", 3)
-            mounts += [pos[0], pos[1], ori[2]]  # planar robot, only x, y, yaw ship
+            # Only yaw ships: the coxa axis is vertical, so a leg cannot be
+            # mounted rolled or pitched. z is the coxa-femur joint's height
+            mounts += [pos[0], pos[1], pos[2], ori[2]]
 
         direction = per_leg("hardware.direction", 3)
         trim = per_leg("hardware.trim", 3)

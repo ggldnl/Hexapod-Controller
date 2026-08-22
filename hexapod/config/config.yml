@@ -14,18 +14,27 @@
 
 kinematics:
 
-  # Leg link lengths (mm), shared by all six legs.
+  # Leg link geometry (mm), shared by all six legs. `coxa` is the RADIAL
+  # distance from the coxa axis out to the coxa-femur joint; `coxa_offset` is
+  # how far that joint sits to the side of the axis (+ left, looking out along
+  # the leg), which carries the whole femur/tibia plane with it. It is 0 on this
+  # robot: the limb runs straight down the plane through the coxa axis. Beware
+  # the URDF's joint frames, which sit off to one side ALONG their own axes and
+  # make it look like 22.4 -- only the meshes say where the leg really is.
   legs:
-    coxa: 62
-    femur: 77
-    tibia: 100
+    coxa: 68.0
+    coxa_offset: 0.0
+    femur: 76.7
+    tibia: 99.6
 
   standing_height: 80.0   # mm, body height when standing
   stance_radius: 155.0    # mm, neutral foot distance from its mount
 
   # Where each leg mounts on the body: position [x, y, z] mm and orientation
-  # [roll, pitch, yaw] deg, relative to the body centre. This robot is planar,
-  # so z and roll/pitch are 0 and the firmware uses only x, y and yaw
+  # [roll, pitch, yaw] deg, relative to the body centre. The coxa axis is
+  # vertical, so roll/pitch cannot be mounted and do not ship; x, y, z and yaw
+  # do. z is the height of the leg's coxa-femur joint over the body origin,
+  # which is 0 when the body origin is taken on that plane (it is, here)
   mounts:
     front_right:
       position: [82.0, -57.0, 0.0]

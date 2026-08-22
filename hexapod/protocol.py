@@ -102,8 +102,9 @@ FMT_ACK = "<B"                  # status (OK on success) — jog / provisioning 
 
 # Jog / provisioning (see protocol.hpp). Arrays are leg-major / joint-major.
 FMT_JOG_SERVO = "<BH"           # channel, pulse_us (0 = release)
-FMT_PROVISION_BODY = "<ffffff"  # coxa,femur,tibia len; standing_h; stance_r; cycle_t
-FMT_PROVISION_MOUNTS = "<18f"   # per leg: x, y, yaw_deg
+FMT_PROVISION_BODY = "<fffffff"  # coxa,femur,tibia len; coxa_offset; standing_h;
+                                 # stance_r; cycle_t
+FMT_PROVISION_MOUNTS = "<24f"   # per leg: x, y, z, yaw_deg
 FMT_PROVISION_DIRECTION = "<18f"  # per servo (leg-major): direction (+/-1)
 FMT_PROVISION_TRIM = "<18f"     # per servo (leg-major): trim_deg
 FMT_PROVISION_RANGES = "<6f"    # per joint type: min_deg, max_deg
