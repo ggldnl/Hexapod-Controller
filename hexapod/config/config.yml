@@ -28,10 +28,10 @@ kinematics:
     tibia: 99.6
 
   standing_height: 80.0   # mm, body height when standing
-  stance_radius: 155.0    # mm, neutral foot distance from its mount
+  stance_radius: 120.0    # mm, neutral foot distance from its mount
 
   # Where each leg mounts on the body: position [x, y, z] mm and orientation
-  # [roll, pitch, yaw] deg, relative to the body centre. The coxa axis is
+  # [roll, pitch, yaw] deg, relative to the body center. The coxa axis is
   # vertical, so roll/pitch cannot be mounted and do not ship; x, y, z and yaw
   # do. z is the height of the leg's coxa-femur joint over the body origin,
   # which is 0 when the body origin is taken on that plane (it is, here)
@@ -102,7 +102,7 @@ safety:
   # (kin_deg * direction + trim) is clamped to these before it drives the servos
   coxa_range: [-90, 90]
   femur_range: [-90, 90]
-  tibia_range: [-120, 0]   # clearance at the tibia minimum (the servo may stall)
+  tibia_range: [-90, 90]
 
   # Body-pose command limits (offsets from standing), each an independent [min, max]
   x_range: [-50, 50]       # mm
@@ -128,12 +128,12 @@ hardware:
   # (e.g. the tibia link is a triangle, so servo -163 deg = kinematic 0). With
   # `direction` this is the servo-kinematic map; the clamp lives in safety.*_range
   trim:
-    front_right:  [0, 0, -163]
-    middle_right: [0, 0, -163]
-    rear_right:   [0, 0, -163]
-    rear_left:    [0, 0, -163]
-    middle_left:  [0, 0, -163]
-    front_left:   [0, 0, -163]
+    front_right:  [0, 0, -90]
+    middle_right: [0, 0, -90]
+    rear_right:   [0, 0, -90]
+    rear_left:    [0, 0, -90]
+    middle_left:  [0, 0, -90]
+    front_left:   [0, 0, -90]
 
   # Servo direction multipliers (1 or -1), per leg [coxa, femur, tibia]
   direction:
