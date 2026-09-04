@@ -43,9 +43,6 @@ We need to enable the serial interface to let the Pi communicate with the Servo2
     ```bash
     # Enable UART
     enable_uart=1
-
-    # Disable bluetooth
-    # dtoverlay=disable-bt
     ```
     On the Pi 5, Bluetooth no longer shares the main UART (unlike the Pi 4), so disabling BT is usually not necessary.
 
@@ -59,7 +56,9 @@ We need to enable the serial interface to let the Pi communicate with the Servo2
   - Remove the console references from the kernel cmdline:
 
     ```bash
-    sudo nano /boot/firmware/cmdline.txt
+    sudo cp /boot/firmware/cmdline.txt /boot/firmware/cmdline.txt.bak
+    sudo sed -i -E 's/\bconsole=(serial[0-9]+|ttyAMA[0-9]+|ttyS[0-9]+)[^[:space:]]*[[:space:]]*//g' /boot/firmware/cmdline.txt
+    # or do it manually: sudo nano /boot/firmware/cmdline.txt
     ```
 
   - Add your user to the `dialout` group:
@@ -81,8 +80,6 @@ The controller is a standard Python package. Clone the repo, create a conda envi
 ```bash
 git clone https://github.com/ggldnl/Hexapod-Controller.git
 cd Hexapod-Controller
-conda create -n hexapod python=3.11
-conda activate hexapod
 pip install ".[serial,calibrate]"
 ```
 
