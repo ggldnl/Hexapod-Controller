@@ -32,12 +32,35 @@ For each servo you jog to -90 degrees and register, then to +90 and register;
 the tool stores those two pulses (plus their average as the midpoint) and moves
 on to the next servo.
 
+Reference pose check (--pose)
+-----------------------------
+Once the pulses are calibrated, --pose checks the structural offsets
+(hardware.trim). It puts every leg at right angles (coxa straight out from the
+body, femur horizontal, tibia vertical) using the config's direction, trim and
+pulses, so a joint that is visibly off (e.g. a tibia that is not vertical) has
+a wrong trim. Then type commands at the prompt:
+
+    x y          set servo x (1..18) to angle y (0..180 deg, integer)
+    r            put every servo back in the reference pose
+    q            release all servos, save the trims and quit
+    ctrl+c       release all servos and quit without saving
+
+Servos are numbered leg-major in the canonical leg order, joints coxa / femur /
+tibia (1-3 front_right, 4-6 middle_right, ..., 16-18 front_left). Angles are
+servo angles: 90 is the servo's centre (the pulse@0 of its calibration). When
+you find the angle that looks right, the trim for that joint changes by the
+same amount you moved it from the reference. On quit, every servo left away
+from its reference has its trim corrected in the config under `hardware.trim`
+(a .bak copy of the old file is kept, --no-save skips the write).
+
 Run:  python3 calibrate.py            [--port /dev/ttyAMA0] [--channels 0 1 2]
+      python3 calibrate.py --pose     [--port /dev/ttyAMA0]
 """
 
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import time
 from pathlib import Path
@@ -207,6 +230,13 @@ def _stop_keyboard() -> None:
     stop_listening()
 
 
+def flow(values) -> CommentedSeq:
+    """A YAML list written inline, like the hand-edited rows in config.yml"""
+    seq = CommentedSeq(values)
+    seq.fa.set_flow_style()
+    return seq
+
+
 def save_results(config_path, results) -> Path:
     """Merge calibration into config.yml under `hardware.pulses`, preserving
     comments/formatting. Returns the backup path."""
@@ -218,11 +248,6 @@ def save_results(config_path, results) -> Path:
         data = yaml_rt.load(f)
     hardware = data.setdefault("hardware", {})
     pulses = hardware.get("pulses") or {}
-
-    def flow(values):
-        seq = CommentedSeq(values)
-        seq.fa.set_flow_style()
-        return seq
 
     n_joints = len(JOINTS)
     for channel, triple in results.items():
@@ -236,6 +261,161 @@ def save_results(config_path, results) -> Path:
     with path.open("w") as f:
         yaml_rt.dump(data, f)
     return backup
+
+
+def save_trims(config_path, trims) -> Path:
+    """Write corrected trims ({channel: deg}) into config.yml under
+    `hardware.trim`. Only the numbers change: the rows are edited in place as
+    text, so comments and the hand-aligned columns survive. Returns the backup
+    path"""
+    path = Path(config_path)
+    backup = path.with_name(path.name + ".bak")
+    shutil.copy2(path, backup)
+
+    lines = path.read_text().splitlines(keepends=True)
+    start = next(i for i, line in enumerate(lines)
+                 if re.match(r"\s+trim:\s*(#.*)?$", line))
+    for channel, value in trims.items():
+        leg, joint = divmod(channel, len(JOINTS))
+        row = re.compile(rf"(\s+{LEGS[leg]}:\s*\[)([^\]]*)(\].*)", re.DOTALL)
+        for i in range(start + 1, len(lines)):
+            match = row.match(lines[i])
+            if match:
+                values = [v.strip() for v in match.group(2).split(",")]
+                values[joint] = f"{round(value, 1):g}"
+                lines[i] = match.group(1) + ", ".join(values) + match.group(3)
+                break
+        else:
+            raise ValueError(f"hardware.trim.{LEGS[leg]} not found in {path}")
+
+    path.write_text("".join(lines))
+    return backup
+
+
+# Kinematic angles (deg) of the reference pose: coxa straight out, femur
+# horizontal, tibia pointing straight down
+REFERENCE_POSE = (0.0, 0.0, -90.0)
+
+
+def angle_to_pulse(triple, angle: float) -> int:
+    """Servo angle (0..180, 90 = centre) to pulse (us), piecewise linear through
+    the calibrated [pulse@-90, pulse@0, pulse@+90] triple"""
+    lo, mid, hi = (float(v) for v in triple)
+    deg = angle - 90.0
+    if deg < 0:
+        return int(round(mid + (mid - lo) * deg / 90.0))
+    return int(round(mid + (hi - mid) * deg / 90.0))
+
+
+class PoseChecker:
+    """Hold the robot in the right-angle reference pose and let the user move
+    single servos to spot (and quantify) wrong trims."""
+
+    def __init__(self, client: HexapodClient, cfg):
+        self.client = client
+        hardware = cfg.get("hardware", {})
+        safety = cfg.get("safety", {})
+        self.pulses = []     # per channel [pulse@-90, pulse@0, pulse@+90]
+        self.trim = []       # per channel, deg
+        self.reference = []  # per channel, servo angle (0..180) of the pose
+        self.ranges = [[float(v) + 90.0 for v in safety[f"{j}_range"]] for j in JOINTS]
+        for leg in LEGS:
+            for joint in range(len(JOINTS)):
+                pulses = hardware.get("pulses", {}).get(leg)
+                self.pulses.append(pulses[joint] if pulses else (500, 1500, 2500))
+                trim = float(hardware["trim"][leg][joint])
+                direction = float(hardware["direction"][leg][joint])
+                self.trim.append(trim)
+                # Same map as the firmware (kin_deg * direction + trim), shifted to 0..180
+                self.reference.append(REFERENCE_POSE[joint] * direction + trim + 90.0)
+        self.angles = list(self.reference)
+
+    def corrections(self) -> dict:
+        """Corrected trim for every servo left away from its reference angle"""
+        return {
+            channel: self.trim[channel] + (now - ref)
+            for channel, (ref, now) in enumerate(zip(self.reference, self.angles))
+            if now != ref
+        }
+
+    def set_angle(self, channel: int, angle: float) -> None:
+        self.angles[channel] = angle
+        self.client.jog_servo(channel, angle_to_pulse(self.pulses[channel], angle))
+
+    def reset(self) -> None:
+        for channel, angle in enumerate(self.reference):
+            self.set_angle(channel, angle)
+            time.sleep(0.02)  # stagger the moves so the rail is not hit all at once
+
+    def release(self) -> None:
+        for channel in range(len(self.angles)):
+            self.client.jog_servo(channel, 0)
+
+    def print_table(self) -> None:
+        print(f"\n{'servo':>5}  {'leg':12s} {'joint':5s}  {'reference':>9}  {'now':>5}")
+        for channel, (ref, now) in enumerate(zip(self.reference, self.angles)):
+            leg, joint = divmod(channel, len(JOINTS))
+            print(f"{channel + 1:5d}  {LEGS[leg]:12s} {JOINTS[joint]:5s}  "
+                  f"{ref:9.1f}  {now:5.1f}")
+
+    def handle(self, line: str) -> bool:
+        """Run one command; False once the user asks to quit"""
+        parts = line.split()
+        if not parts:
+            return True
+        if parts == ["q"]:
+            return False
+        if parts == ["r"]:
+            self.reset()
+            self.print_table()
+            return True
+        if len(parts) != 2 or not all(p.isdigit() for p in parts):
+            print("Expected 'x y' (servo 1..18, angle 0..180), 'r' or 'q'")
+            return True
+        servo, angle = int(parts[0]), int(parts[1])
+        if not 1 <= servo <= len(self.angles):
+            print(f"Servo must be between 1 and {len(self.angles)}")
+            return True
+        if not 0 <= angle <= 180:
+            print("Angle must be between 0 and 180")
+            return True
+
+        channel = servo - 1
+        leg, joint = divmod(channel, len(JOINTS))
+        lo, hi = self.ranges[joint]
+        if not lo <= angle <= hi:
+            print(f"Warning: outside the {JOINTS[joint]} safety range "
+                  f"[{lo:.0f}, {hi:.0f}], the firmware would clamp it while walking")
+        self.set_angle(channel, angle)
+
+        offset = angle - self.reference[channel]
+        print(f"Servo {servo} ({LEGS[leg]} {JOINTS[joint]}) at {angle}, "
+              f"{offset:+.1f} from the reference: saving on quit sets "
+              f"hardware.trim.{LEGS[leg]}[{joint}] = {self.trim[channel] + offset:g}")
+        return True
+
+    def run(self) -> bool:
+        """Interactive session; True if it ended with a quit that should save"""
+        print(__doc__)
+        input("\nPress Enter to energize and move to the reference pose... ")
+        try:
+            self.reset()
+            self.print_table()
+            while True:
+                try:
+                    line = input("\n> ")
+                except EOFError:
+                    break
+                if not self.handle(line.strip().lower()):
+                    break
+        except KeyboardInterrupt:
+            print("\nAborted, nothing will be saved.")
+            return False
+        finally:
+            self.release()
+            self.client.close()
+            print("Servos released.")
+        return True
 
 
 def _parse_channels(channels, legs):
@@ -281,6 +461,11 @@ def main() -> None:
     ap.add_argument("--min-pulse", "-u", type=int, default=500)
     ap.add_argument("--max-pulse", "-U", type=int, default=2500)
     ap.add_argument("--no-save", action="store_true")
+    ap.add_argument(
+        "--pose",
+        action="store_true",
+        help="hold the right-angle reference pose to check the trims.",
+    )
     args = ap.parse_args()
 
     with open(args.config) as f:
@@ -294,6 +479,21 @@ def main() -> None:
     hardware = cfg.get("hardware", {})
     if "pins" in hardware:
         client.set_pins([int(v) for leg in LEGS for v in hardware["pins"][leg]])
+
+    if args.pose:
+        checker = PoseChecker(client, cfg)
+        trims = checker.corrections() if checker.run() else {}
+        if trims and not args.no_save:
+            backup = save_trims(args.config, trims)
+            for channel, value in sorted(trims.items()):
+                leg, joint = divmod(channel, len(JOINTS))
+                print(f"  {LEGS[leg]} {JOINTS[joint]}: trim {checker.trim[channel]:g} -> {value:g}")
+            print(f"Saved {len(trims)} trim(s) to {args.config} (backup: {backup}).")
+        elif trims:
+            print("--no-save set; trims were not written.")
+        else:
+            print("No servo moved from its reference; nothing to save.")
+        return
 
     channels = _parse_channels(args.channels, args.legs)
     cal = ServoCalibrator(

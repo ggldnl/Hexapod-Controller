@@ -134,6 +134,14 @@ python calibrate.py                     # uses the packaged config.yml
 python calibrate.py --config my_robot.yml --port /dev/ttyAMA0
 ```
 
+Once the pulses are calibrated, `--pose` checks the structural offsets (`hardware.trim`). It puts every leg at right angles (coxa straight out, femur horizontal, tibia vertical), so a badly calibrated joint stands out. Then type `x y` to move servo `x` (1 to 18) to angle `y` (0 to 180, 90 is the servo's centre), `r` to go back to the reference pose and `q` to release the servos and quit. Every servo left away from its reference on `q` gets its trim corrected in the config passed with `--config` (a `.bak` copy is kept; `--no-save` or Ctrl+C skips the write):
+
+```bash
+python calibrate.py --pose
+> 3 115
+Servo 3 (front_right tibia) at 115, +4.5 from the reference: saving on quit sets hardware.trim.front_right[2] = -65
+```
+
 ## 🧪 Tests
 
 ```bash
